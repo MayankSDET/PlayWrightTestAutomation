@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/base.fixture';
+import { test, expect } from '../../fixtures/base.fixture';
 
 test('create -> get -> update -> delete: chained object lifecycle', async ({ objectApiClient }) => {
   const created = await objectApiClient.create({

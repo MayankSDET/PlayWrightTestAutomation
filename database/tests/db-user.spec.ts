@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/base.fixture';
+import { test, expect } from '../../fixtures/base.fixture';
 
 test('create -> get -> update -> delete: chained user record', async ({ userRepository }) => {
   const created = userRepository.create('jdoe', 'jdoe@example.com');

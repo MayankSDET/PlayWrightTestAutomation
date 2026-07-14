@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: '.',
+  testMatch: '**/tests/**/*.spec.ts',
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -11,7 +12,7 @@ export default defineConfig({
   },
   reporter: 'html',
   use: {
-    baseURL: 'https://example.com',
+    baseURL: 'https://www.saucedemo.com',
     trace: 'on-first-retry',
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
