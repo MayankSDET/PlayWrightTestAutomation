@@ -8,7 +8,9 @@ import { CheckoutCompletePage } from '../ui/pages/CheckoutCompletePage';
 import { S3Service } from '../aws/services/S3Service';
 import { BlobService } from '../azure/services/BlobService';
 import { ObjectApiClient } from '../api/clients/ObjectApiClient';
+import { UserApiClient } from '../api/clients/UserApiClient';
 import { getApiConfig } from '../api/config/apiConfig';
+import { getReqresConfig } from '../api/config/reqresConfig';
 import { users } from '../ui/utils/Users';
 import { DbService } from '../database/services/DbService';
 import { UserRepository } from '../database/repositories/UserRepository';
@@ -22,6 +24,7 @@ type TestFixtures = {
   checkoutStepTwoPage: CheckoutStepTwoPage;
   checkoutCompletePage: CheckoutCompletePage;
   objectApiClient: ObjectApiClient;
+  userApiClient: UserApiClient;
   userRepository: UserRepository;
 };
 
@@ -29,6 +32,7 @@ type WorkerFixtures = {
   s3Service: S3Service;
   blobService: BlobService;
   apiRequestContext: APIRequestContext;
+  reqresRequestContext: APIRequestContext;
   dbService: DbService;
 };
 
@@ -79,6 +83,20 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   objectApiClient: async ({ apiRequestContext }, use) => {
     await use(new ObjectApiClient(apiRequestContext));
+  },
+
+  reqresRequestContext: [async ({ playwright }, use) => {
+    const config = getReqresConfig();
+    const context = await playwright.request.newContext({
+      baseURL: config.baseURL,
+      extraHTTPHeaders: { 'x-api-key': config.apiKey },
+    });
+    await use(context);
+    await context.dispose();
+  }, { scope: 'worker' }],
+
+  userApiClient: async ({ reqresRequestContext }, use) => {
+    await use(new UserApiClient(reqresRequestContext));
   },
 
   dbService: [async ({}, use) => {

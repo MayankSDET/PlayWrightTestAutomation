@@ -23,8 +23,7 @@ the next time you extend that part of the framework.
 playwright.config.ts     Playwright's own config: browsers, timeouts, reporter, retries
 tsconfig.json             TypeScript compiler options
 package.json               Scripts + dependencies
-.env / .env.example         Real secrets (gitignored) / the template you copy from
-.gitignore                  What never gets committed
+.gitignore                  What never gets committed (incl. every domain's .env)
 
 ui/                         UI automation for saucedemo.com (Page Object Model)
   pages/
@@ -40,6 +39,7 @@ ui/                         UI automation for saucedemo.com (Page Object Model)
     Users.ts                      The six saucedemo accounts (username/password)
     CheckoutData.ts                 Checkout form test data (name, postal code)
     Products.ts                      Product names used across specs
+  (no .env — saucedemo's baseURL is hardcoded in playwright.config.ts)
 
 api/                        REST API client(s)
   clients/
@@ -48,6 +48,7 @@ api/                        REST API client(s)
   config/apiConfig.ts              API base URL
   tests/                          api-object.spec.ts
   utils/                          Placeholder — API-domain test data (empty for now)
+  .env / .env.example              API_BASE_URL (gitignored real values / committed template)
 
 database/                   SQL database testing (SQLite)
   services/
@@ -58,6 +59,7 @@ database/                   SQL database testing (SQLite)
   config/dbConfig.ts               DB file path
   tests/                          db-user.spec.ts
   utils/                          Placeholder — database-domain test data (empty for now)
+  .env / .env.example              DB_FILE_PATH (gitignored real values / committed template)
 
 aws/                         AWS S3
   services/
@@ -65,6 +67,7 @@ aws/                         AWS S3
   config/awsConfig.ts               Region/credentials/bucket
   tests/                          s3.spec.ts
   utils/                          Placeholder — AWS-domain test data (empty for now)
+  .env / .env.example              AWS_* vars (gitignored real values / committed template)
 
 azure/                       Azure Blob Storage
   services/
@@ -72,21 +75,33 @@ azure/                       Azure Blob Storage
   config/azureConfig.ts             Connection string/container
   tests/                          blob.spec.ts
   utils/                          Placeholder — Azure-domain test data (empty for now)
+  .env / .env.example              AZURE_* vars (gitignored real values / committed template)
 
 fixtures/
   base.fixture.ts             Wires every class above into Playwright's `test`
 
 config/
-  loadEnv.ts                    Loads .env exactly once, shared by every domain's config
+  loadEnv.ts                    Loads a given .env path exactly once; called by each domain's config with its own domain's .env
 ```
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # fill in real values where noted below
+cp aws/.env.example aws/.env           # fill in real AWS values
+cp azure/.env.example azure/.env       # fill in real Azure values
+cp api/.env.example api/.env           # fill in a real REQRES_API_KEY (see below)
+cp database/.env.example database/.env # optional — has a working default
 npx playwright install chromium
 ```
+
+`ui/` has no `.env` — saucedemo.com's URL is hardcoded as `baseURL` in
+`playwright.config.ts`, since it's a fixed public demo site, not a per-environment
+config. `database/` ships a default that works with zero setup (an in-memory SQLite DB).
+`api/` is split: `api-object.spec.ts` (against `api.restful-api.dev`) needs no
+credentials, but `reqres-user.spec.ts` needs a real `REQRES_API_KEY` — get a free one at
+[app.reqres.in/api-keys](https://app.reqres.in/api-keys). `aws/` and `azure/` also need
+real credentials before their tests can pass.
 
 Run everything:
 
@@ -119,10 +134,10 @@ folder with its own `tests/` subfolder needs no config change.
 | `playwright.config.ts` | `testDir`/`testMatch`, `baseURL`, `retries`/`workers` (CI vs local), timeouts, the `html` reporter, the `chromium` project | Adding a browser/project, changing timeouts, pointing `baseURL` at a real app |
 | `tsconfig.json` | Compiler target/strictness | Rarely — only if you need a new TS feature or path alias |
 | `package.json` | `npm test` / `test:headed` / `report` scripts, all dependencies | Adding a new npm script, or a new dependency when you add an integration |
-| `.env.example` | The full list of env vars the framework understands, with placeholder values and comments | **Every time you add a new env var**, add it here too so the next person knows it exists |
-| `.env` | Real values, gitignored | Never commit this. Copy `.env.example` to make it |
-| `.gitignore` | `node_modules/`, `.env`, Playwright's own output dirs, `.claude/settings.local.json` | Add new generated-output directories here as they show up |
-| `config/loadEnv.ts` | Loads `.env` once, shared by every domain's `config/*.ts` | See [The env-loading pattern](#the-env-loading-pattern-configloadenvts) below |
+| `<domain>/.env.example` | That domain's env vars, with placeholder values and comments (e.g. `aws/.env.example`) | **Every time you add a new env var**, add it to the relevant domain's `.env.example` |
+| `<domain>/.env` | That domain's real values, gitignored | Never commit this. Copy the matching `.env.example` to make it |
+| `.gitignore` | `node_modules/`, `.env` (matches at any depth, so every domain's `.env` is covered), Playwright's own output dirs, `.claude/settings.local.json` | Add new generated-output directories here as they show up |
+| `config/loadEnv.ts` | Loads a given `.env` path exactly once (tracked by path, not a single flag) — called by every domain's `config/*.ts` with that domain's own `.env` | See [The env-loading pattern](#the-env-loading-pattern-configloadenvts) below |
 
 ---
 
@@ -217,13 +232,15 @@ password `secret_sauce`), `CheckoutData.ts` exports the checkout form fill-in va
 
 ### What's here
 
-`aws/config/awsConfig.ts` reads four env vars and exposes `getAwsConfig()`. It does
-**not** validate eagerly at import time — `required()` only runs when `getAwsConfig()` is
+`aws/config/awsConfig.ts` reads its env vars from `aws/.env` (via `loadEnv(path.resolve(__dirname,
+'../.env'))`, resolving to `aws/.env`) and exposes `getAwsConfig()`. It does **not**
+validate eagerly at import time — `required()` only runs when `getAwsConfig()` is
 actually called, which only happens inside `S3Service`'s constructor, which only runs
 when a test declares the `s3Service` fixture. That's why a test that never touches S3
-still runs fine even with no AWS credentials configured at all.
+still runs fine even with no `aws/.env` configured at all.
 
 ```env
+# aws/.env
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
@@ -233,7 +250,7 @@ AWS_S3_BUCKET_NAME=...
 `aws/services/S3Service.ts` wraps the AWS SDK v3 `S3Client` behind three methods:
 `fileExists(key)`, `listFiles(prefix)`, `getFileContent(key)`. The constructor takes an
 **optional** bucket name override (`bucket?: string`) — use that in a specific test if it
-needs to point at a different bucket than the one in `.env`, without adding new config.
+needs to point at a different bucket than the one in `aws/.env`, without adding new config.
 
 ```ts
 test('Verify an uploaded file exists in the S3 bucket', async ({ s3Service }) => {
@@ -263,8 +280,11 @@ test('Verify an uploaded file exists in the S3 bucket', async ({ s3Service }) =>
 Same pattern as S3, using `@azure/storage-blob`'s `BlobServiceClient` instead:
 `fileExists(blobName)`, `listFiles(prefix)`, `getFileContent(blobName)`. The constructor
 takes an optional container-name override, same idea as `S3Service`'s optional bucket.
+`azure/config/azureConfig.ts` reads its env vars from `azure/.env`, the same way
+`awsConfig.ts` reads from `aws/.env`.
 
 ```env
+# azure/.env
 AZURE_STORAGE_CONNECTION_STRING=...
 AZURE_STORAGE_CONTAINER_NAME=...
 ```
@@ -287,7 +307,12 @@ content, don't write a second stream-reading helper. Put its spec in `azure/test
 
 ## 4. API testing (chained/dependent calls)
 
-**Folder:** `api/` · **Test:** `api/tests/api-object.spec.ts`
+**Folder:** `api/` · **Tests:** `api/tests/api-object.spec.ts`, `api/tests/reqres-user.spec.ts`
+
+This domain holds two independent REST clients against two different public APIs, each
+with its own worker-scoped `APIRequestContext` (different `baseURL`s and auth needs can't
+share one context) — `ObjectApiClient` against `api.restful-api.dev` and `UserApiClient`
+against [reqres.in](https://reqres.in).
 
 ### What's here
 
@@ -318,9 +343,57 @@ test('create -> get -> update -> delete: chained object lifecycle', async ({ obj
 });
 ```
 
-`API_BASE_URL` (in `api/config/apiConfig.ts`) defaults to `https://api.restful-api.dev`,
-a free public test API with real (temporary) persistence, so this spec runs and passes
-with zero setup.
+`API_BASE_URL` (in `api/config/apiConfig.ts`, read from `api/.env`) defaults to
+`https://api.restful-api.dev`, a free public test API with real (temporary) persistence,
+so this spec runs and passes with zero setup.
+
+**`api/clients/UserApiClient.ts`** targets reqres.in's user/auth endpoints instead:
+`list(page)`, `getById(id)`, `exists(id)`, `create(payload)`, `update(id, payload)`,
+`partialUpdate(id, payload)`, `delete(id)`, `register(payload)`, `login(payload)`.
+Unlike `ObjectApiClient`, `register()`/`login()` don't assert success internally — both a
+200 (valid credentials) and a 400 (e.g. missing password) are meaningful outcomes a test
+needs to assert on, so these two methods return `{ status, body }` and let the test
+decide what "success" means for that case, the same way `ObjectApiClient.exists()`
+returns a plain boolean instead of throwing on a 404.
+
+Unlike `api.restful-api.dev`, reqres.in now requires a free `x-api-key` header on every
+request (get one at [app.reqres.in/api-keys](https://app.reqres.in/api-keys)). That key
+is read from `REQRES_API_KEY` in `api/.env` by `api/config/reqresConfig.ts` and attached
+once, worker-wide, in the `reqresRequestContext` fixture:
+
+```ts
+// fixtures/base.fixture.ts
+reqresRequestContext: [async ({ playwright }, use) => {
+  const config = getReqresConfig();
+  const context = await playwright.request.newContext({
+    baseURL: config.baseURL,
+    extraHTTPHeaders: { 'x-api-key': config.apiKey },
+  });
+  await use(context);
+  await context.dispose();
+}, { scope: 'worker' }],
+```
+
+Same lazy-validation rule as AWS/Azure: `getReqresConfig()` only throws when a test
+actually declares `userApiClient` (or `reqresRequestContext` directly) — specs that never
+touch reqres.in run fine with no key configured.
+
+```ts
+test('GET /api/users lists users on the requested page', async ({ userApiClient }) => {
+  const page = await userApiClient.list(2);
+  expect(page.data[0].id).toBe(7);
+});
+
+test('POST /api/login fails without a password', async ({ userApiClient }) => {
+  const result = await userApiClient.login(login.missingPassword);
+  expect(result.status).toBe(400);
+});
+```
+
+`api/utils/ReqresCredentials.ts` and `api/utils/ReqresUserPayloads.ts` hold the test data
+these specs assert against — reqres.in's documented fixture accounts/responses (e.g.
+`eve.holt@reqres.in` for a successful register/login), split by concern the same way
+`ui/utils/` is.
 
 ### Adding a client for your own API
 
@@ -331,7 +404,7 @@ with zero setup.
    `ObjectApiClient` exactly.
 4. Export any request/response shapes as `type`s at the top of the file (see `TestObject`
    / `TestObjectPayload`), so callers get typed responses.
-5. Point `API_BASE_URL` in `.env` at your real API.
+5. Point `API_BASE_URL` in `api/.env` at your real API.
 6. Register the new client as a fixture (test-scoped, depending on `apiRequestContext`)
    in `fixtures/base.fixture.ts` — copy the `objectApiClient` fixture entry.
 7. Put its spec in `api/tests/`.
@@ -363,9 +436,10 @@ test('create -> get -> update -> delete: chained user record', async ({ userRepo
 });
 ```
 
-`DB_FILE_PATH` defaults to `:memory:` — a fresh, in-memory database, migrated once per
-worker (see [Fixtures](#fixtures)) and needing zero external setup. Set it to a real file
-path (e.g. `./data/test.db`) to test against a persistent SQLite file instead.
+`DB_FILE_PATH` (in `database/config/dbConfig.ts`, read from `database/.env`) defaults to
+`:memory:` — a fresh, in-memory database, migrated once per worker (see
+[Fixtures](#fixtures)) and needing zero external setup. Set it to a real file path (e.g.
+`./data/test.db`) in `database/.env` to test against a persistent SQLite file instead.
 
 ### Adding a new table
 
@@ -412,8 +486,10 @@ test('...', async ({ loginPage, s3Service, objectApiClient, userRepository }) =>
 | `cartPage` / `checkoutStepOnePage` / `checkoutStepTwoPage` / `checkoutCompletePage` | test | `new ...Page(page)` | Page objects for the cart and each checkout step |
 | `s3Service` | **worker** | `new S3Service()` | Shared AWS S3 client |
 | `blobService` | **worker** | `new BlobService()` | Shared Azure Blob client |
-| `apiRequestContext` | **worker** | `playwright.request.newContext(...)` | Shared HTTP context for API calls |
+| `apiRequestContext` | **worker** | `playwright.request.newContext(...)` | Shared HTTP context for `api.restful-api.dev` calls |
 | `objectApiClient` | test | `apiRequestContext` | Thin wrapper exposing the REST client |
+| `reqresRequestContext` | **worker** | `playwright.request.newContext(...)` with the `x-api-key` header set | Shared HTTP context for reqres.in calls |
+| `userApiClient` | test | `reqresRequestContext` | Thin wrapper exposing the reqres.in client |
 | `dbService` | **worker** | `new DbService()` + `.migrate()` | Shared, already-migrated SQLite connection |
 | `userRepository` | test | `dbService` | Thin wrapper exposing the repository |
 
@@ -487,7 +563,7 @@ each domain has its own `utils/` rather than there being one shared top-level `u
 (unlike `fixtures/` and `config/loadEnv.ts`, which stay at the root because every
 domain's tests/config depend on them).
 
-**`ui/utils/`** is the one domain with real data in it so far:
+**`ui/utils/`**:
 
 | File | Exports | Used by |
 |---|---|---|
@@ -495,11 +571,18 @@ domain's tests/config depend on them).
 | `CheckoutData.ts` | `checkoutInfo` — first name/last name/postal code for the checkout form | `checkout.spec.ts` |
 | `Products.ts` | `products` — product name constants asserted against in specs | `inventory.spec.ts`, `cart.spec.ts`, `checkout.spec.ts` |
 
-**`api/utils/`, `aws/utils/`, `azure/utils/`, `database/utils/`** each hold a single
-placeholder file today (`ApiTestData.ts`, `AwsTestData.ts`, `AzureTestData.ts`,
-`DatabaseTestData.ts` — just a comment and `export {}`, so the empty folder still exists
-in git) since those domains have no static test data yet. Replace the placeholder with
-real per-concern files the first time you add data to that domain, and delete the
+**`api/utils/`**:
+
+| File | Exports | Used by |
+|---|---|---|
+| `ReqresCredentials.ts` | `registration`, `login` — reqres.in's documented valid/invalid test accounts | `reqres-user.spec.ts` |
+| `ReqresUserPayloads.ts` | `newUser`, `updatedUser` — create/update request bodies | `reqres-user.spec.ts` |
+
+**`aws/utils/`, `azure/utils/`, `database/utils/`** each still hold a single placeholder
+file (`AwsTestData.ts`, `AzureTestData.ts`, `DatabaseTestData.ts` — just a comment and
+`export {}`, so the empty folder still exists in git) since those domains have no static
+test data yet. Replace the placeholder with real per-concern files the first time you add
+data to that domain, following the pattern `api/utils/` just switched to — and delete the
 placeholder once it's no longer the only thing in the folder.
 
 ### Adding new test data
@@ -517,19 +600,50 @@ placeholder once it's no longer the only thing in the folder.
 
 ## The env-loading pattern (`config/loadEnv.ts`)
 
-`config/loadEnv.ts` stays at the project root because every domain's config file depends
-on it. Each domain's own `config/*.ts` (`aws/config/awsConfig.ts`,
-`azure/config/azureConfig.ts`, `api/config/apiConfig.ts`, `database/config/dbConfig.ts`)
-follows the same two rules — copy them when you add a new integration's config file:
+Each domain owns its **own** `.env` — `aws/.env`, `azure/.env`, `api/.env`,
+`database/.env` — instead of one shared root `.env`, since AWS credentials have nothing
+to do with the DB file path, and a contributor working on one integration shouldn't need
+to touch a file that also holds three other domains' secrets.
 
-1. **Load `.env` through the shared `loadEnv()`**, not your own `dotenv.config()` call.
-   `loadEnv()` guards itself with a module-level flag so `.env` is only ever read from
-   disk once, no matter how many config files import it.
+`config/loadEnv.ts` still stays at the project root, because it's the one piece of
+*logic* every domain's config shares — but it no longer picks the path itself:
+
+```ts
+// config/loadEnv.ts
+const loadedPaths = new Set<string>();
+
+export function loadEnv(envPath: string): void {
+  if (loadedPaths.has(envPath)) {
+    return;
+  }
+  dotenv.config({ path: envPath, quiet: true });
+  loadedPaths.add(envPath);
+}
+```
+
+It tracks *which paths* have already been loaded (a `Set`, not a single boolean), because
+in one test run `fixtures/base.fixture.ts` may need `aws/.env` *and* `database/.env` *and*
+`api/.env` all loaded — each exactly once, but as distinct files.
+
+Each domain's own `config/*.ts` (`aws/config/awsConfig.ts`, `azure/config/azureConfig.ts`,
+`api/config/apiConfig.ts`, `database/config/dbConfig.ts`) follows the same two rules —
+copy them when you add a new integration's config file:
+
+1. **Load your domain's own `.env` through the shared `loadEnv()`**, passing the path to
+   *your* domain's file, not your own `dotenv.config()` call:
+   ```ts
+   // aws/config/awsConfig.ts
+   import * as path from 'path';
+   import { loadEnv } from '../../config/loadEnv';
+
+   loadEnv(path.resolve(__dirname, '../.env')); // resolves to aws/.env
+   ```
 2. **Validate lazily.** Wrap required env vars in a `getXyzConfig()` function (not a
    plain exported object) so nothing throws until something actually calls it — which,
    in this framework, only happens inside the relevant service's constructor. This is
-   why running the full suite without AWS/Azure credentials configured doesn't break the
-   API/DB/UI tests: their fixtures never call `getAwsConfig()`/`getAzureConfig()` at all.
+   why running the full suite without `aws/.env`/`azure/.env` configured doesn't break
+   the API/DB/UI tests: their fixtures never call `getAwsConfig()`/`getAzureConfig()` at
+   all, so `aws/.env`/`azure/.env` are never even read.
 
 ---
 

@@ -1,6 +1,7 @@
+import * as path from 'path';
 import { loadEnv } from '../../config/loadEnv';
 
-loadEnv();
+loadEnv(path.resolve(__dirname, '../.env'));
 
 function required(name: string): string {
   const value = process.env[name];

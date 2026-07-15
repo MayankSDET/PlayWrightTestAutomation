@@ -1,12 +1,11 @@
 import * as dotenv from 'dotenv';
-import * as path from 'path';
 
-let loaded = false;
+const loadedPaths = new Set<string>();
 
-export function loadEnv(): void {
-  if (loaded) {
+export function loadEnv(envPath: string): void {
+  if (loadedPaths.has(envPath)) {
     return;
   }
-  dotenv.config({ path: path.resolve(__dirname, '../.env'), quiet: true });
-  loaded = true;
+  dotenv.config({ path: envPath, quiet: true });
+  loadedPaths.add(envPath);
 }
