@@ -14,6 +14,7 @@ import { getReqresConfig } from '../api/config/reqresConfig';
 import { users } from '../ui/utils/Users';
 import { DbService } from '../database/services/DbService';
 import { UserRepository } from '../database/repositories/UserRepository';
+import { PerformanceService } from '../performance/services/PerformanceService';
 
 type TestFixtures = {
   loginPage: LoginPage;
@@ -34,6 +35,7 @@ type WorkerFixtures = {
   apiRequestContext: APIRequestContext;
   reqresRequestContext: APIRequestContext;
   dbService: DbService;
+  performanceService: PerformanceService;
 };
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -108,7 +110,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   userRepository: async ({ dbService }, use) => {
     await use(new UserRepository(dbService));
-  }
+  },
+
+  performanceService: [async ({}, use) => {
+    await use(new PerformanceService());
+  }, { scope: 'worker' }],
 });
 
 export { expect } from '@playwright/test';

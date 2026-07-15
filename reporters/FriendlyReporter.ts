@@ -10,6 +10,10 @@ const SECTION_META: Record<string, { label: string; blurb: string }> = {
     label: 'Shopping Website',
     blurb: 'Can a customer log in, browse and sort products, use the cart, and complete checkout on saucedemo.com?',
   },
+  performance: {
+    label: 'Website Speed',
+    blurb: 'Does the site load fast enough, and with a stable layout, for a good customer experience?',
+  },
   database: {
     label: 'Database Records',
     blurb: 'Can the system create, read, update, and delete a customer record correctly?',
@@ -32,10 +36,11 @@ const SECTION_META: Record<string, { label: string; blurb: string }> = {
   },
 };
 
-const SECTION_ORDER = ['ui', 'database', 'api-object', 'api-user', 'aws', 'azure'];
+const SECTION_ORDER = ['ui', 'performance', 'database', 'api-object', 'api-user', 'aws', 'azure'];
 
 function sectionKeyFor(file: string): string | null {
   if (file.startsWith('ui/tests')) return 'ui';
+  if (file.startsWith('performance/tests')) return 'performance';
   if (file.startsWith('database/tests')) return 'database';
   if (file === 'api/tests/api-object.spec.ts') return 'api-object';
   if (file === 'api/tests/reqres-user.spec.ts') return 'api-user';

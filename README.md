@@ -77,6 +77,14 @@ azure/                       Azure Blob Storage
   utils/                          Placeholder — Azure-domain test data (empty for now)
   .env / .env.example              AZURE_* vars (gitignored real values / committed template)
 
+performance/                Page-load performance & Core Web Vitals (saucedemo.com)
+  services/
+    PerformanceService.ts          Reads navigation timing + LCP/CLS off the page
+  config/performanceThresholds.ts  Per-page budgets (ms / CLS score)
+  tests/                          page-load.spec.ts
+  utils/                          Placeholder — performance-domain test data (empty for now)
+  (no .env — budgets are hardcoded config, like ui/'s baseURL)
+
 fixtures/
   base.fixture.ts             Wires every class above into Playwright's `test`
 
@@ -115,6 +123,7 @@ Run one domain at a time:
 
 ```bash
 npx playwright test ui/tests           # UI (saucedemo.com)
+npx playwright test performance/tests  # Page-load performance & Web Vitals
 npx playwright test api/tests          # REST API
 npx playwright test aws/tests          # AWS S3
 npx playwright test azure/tests        # Azure Blob Storage
@@ -226,7 +235,62 @@ password `secret_sauce`), `CheckoutData.ts` exports the checkout form fill-in va
 
 ---
 
-## 2. AWS S3
+## 2. Page-load performance testing
+
+**Folder:** `performance/` · **Test:** `performance/tests/page-load.spec.ts`
+
+This domain checks that key saucedemo.com pages load fast and paint a stable layout —
+not by hitting the app with load/concurrency (that's a different tool, e.g. k6), but by
+reading the same performance data a real browser exposes to `web.dev`-style Web Vitals
+tooling, for a single page load, and asserting it stays under a budget.
+
+### What's here
+
+**`performance/services/PerformanceService.ts`** takes a Playwright `Page` and reads two
+kinds of metrics straight out of the browser's own Performance APIs — no new dependency:
+
+- `getNavigationTiming(page)` — reads the page's `PerformanceNavigationTiming` entry and
+  returns `ttfbMs` (time to first byte), `domContentLoadedMs`, and `loadMs`.
+- `getWebVitals(page)` — sets up `PerformanceObserver`s (with `buffered: true`, so
+  already-recorded entries are included) for **LCP** (largest contentful paint) and
+  **CLS** (cumulative layout shift), waits briefly for their async callbacks to fire, and
+  returns `{ fcpMs, lcpMs, cls }`.
+
+```ts
+test('Login page meets load-time and Web Vitals budgets', async ({ page, loginPage, performanceService }) => {
+  await loginPage.goto();
+
+  const timing = await performanceService.getNavigationTiming(page);
+  const vitals = await performanceService.getWebVitals(page);
+
+  expect(timing.loadMs).toBeLessThan(performanceThresholds.login.loadMs);
+  expect(vitals.cls).toBeLessThan(performanceThresholds.login.cls);
+});
+```
+
+`performance/config/performanceThresholds.ts` holds the budget per page (`login`,
+`inventory`) — `domContentLoadedMs`, `loadMs`, `lcpMs`, `cls` — as plain hardcoded
+constants, the same way `ui/`'s `baseURL` is hardcoded in `playwright.config.ts`: these
+are budgets for a fixed public demo site, not per-environment config, so there's no
+`.env` for this domain.
+
+`vitals.lcpMs` can be `null` on a page with no qualifying paint (e.g. no large
+image/text block) — specs only assert on it when it's present, and always assert on
+`cls`, which is always a number (zero if nothing shifted).
+
+### Adding a performance check for a new page
+
+1. Add that page's budget to `performance/config/performanceThresholds.ts`.
+2. Navigate to the page using its existing page object / fixture (don't add raw
+   `page.goto()` calls in the spec — reuse `loginPage`, `authenticatedInventoryPage`, etc.).
+3. Call `performanceService.getNavigationTiming(page)` and/or `.getWebVitals(page)` and
+   assert each metric against its budget from step 1.
+4. Put the test in `performance/tests/` — one file per page/flow if it grows, the same
+   way `ui/tests/` is split by screen.
+
+---
+
+## 3. AWS S3
 
 **Folder:** `aws/` · **Test:** `aws/tests/s3.spec.ts`
 
@@ -271,7 +335,7 @@ test('Verify an uploaded file exists in the S3 bucket', async ({ s3Service }) =>
 
 ---
 
-## 3. Azure Blob Storage
+## 4. Azure Blob Storage
 
 **Folder:** `azure/` · **Test:** `azure/tests/blob.spec.ts`
 
@@ -305,7 +369,7 @@ content, don't write a second stream-reading helper. Put its spec in `azure/test
 
 ---
 
-## 4. API testing (chained/dependent calls)
+## 5. API testing (chained/dependent calls)
 
 **Folder:** `api/` · **Tests:** `api/tests/api-object.spec.ts`, `api/tests/reqres-user.spec.ts`
 
@@ -411,7 +475,7 @@ these specs assert against — reqres.in's documented fixture accounts/responses
 
 ---
 
-## 5. SQL database testing
+## 6. SQL database testing
 
 **Folder:** `database/` · **Test:** `database/tests/db-user.spec.ts`
 
@@ -492,6 +556,7 @@ test('...', async ({ loginPage, s3Service, objectApiClient, userRepository }) =>
 | `userApiClient` | test | `reqresRequestContext` | Thin wrapper exposing the reqres.in client |
 | `dbService` | **worker** | `new DbService()` + `.migrate()` | Shared, already-migrated SQLite connection |
 | `userRepository` | test | `dbService` | Thin wrapper exposing the repository |
+| `performanceService` | **worker** | `new PerformanceService()` | Shared helper for reading navigation timing / Web Vitals off a `page` |
 
 **Why the scope matters:** `worker`-scoped fixtures are created once per parallel worker
 and reused across every test that worker runs — cheap and correct for stateless clients
@@ -528,7 +593,8 @@ or so cheap to construct that sharing it buys nothing.
 
 ## Tests
 
-**Folders:** `ui/tests/`, `api/tests/`, `database/tests/`, `aws/tests/`, `azure/tests/` —
+**Folders:** `ui/tests/`, `performance/tests/`, `api/tests/`, `database/tests/`,
+`aws/tests/`, `azure/tests/` —
 one spec file per concern, named after what it tests (`login.spec.ts`, `s3.spec.ts`,
 `db-user.spec.ts`, not `test1.spec.ts`), living inside its own domain folder rather than
 a shared top-level `tests/` directory. Every spec:
@@ -578,17 +644,18 @@ domain's tests/config depend on them).
 | `ReqresCredentials.ts` | `registration`, `login` — reqres.in's documented valid/invalid test accounts | `reqres-user.spec.ts` |
 | `ReqresUserPayloads.ts` | `newUser`, `updatedUser` — create/update request bodies | `reqres-user.spec.ts` |
 
-**`aws/utils/`, `azure/utils/`, `database/utils/`** each still hold a single placeholder
-file (`AwsTestData.ts`, `AzureTestData.ts`, `DatabaseTestData.ts` — just a comment and
-`export {}`, so the empty folder still exists in git) since those domains have no static
-test data yet. Replace the placeholder with real per-concern files the first time you add
-data to that domain, following the pattern `api/utils/` just switched to — and delete the
-placeholder once it's no longer the only thing in the folder.
+**`aws/utils/`, `azure/utils/`, `database/utils/`, `performance/utils/`** each still hold
+a single placeholder file (`AwsTestData.ts`, `AzureTestData.ts`, `DatabaseTestData.ts`,
+`PerformanceTestData.ts` — just a comment and `export {}`, so the empty folder still
+exists in git) since those domains have no static test data yet. Replace the placeholder
+with real per-concern files the first time you add data to that domain, following the
+pattern `api/utils/` just switched to — and delete the placeholder once it's no longer
+the only thing in the folder.
 
 ### Adding new test data
 
 1. Decide which domain the data belongs to (`ui/utils/`, `api/utils/`, `aws/utils/`,
-   `azure/utils/`, or `database/utils/`).
+   `azure/utils/`, `database/utils/`, or `performance/utils/`).
 2. Create one file per concern (e.g. `ui/utils/YourConcern.ts`), named for what it holds,
    not for the fact that it's "data" — `Users.ts`, not `UserTestData.ts`.
 3. Export a single `const` (object or array) per file, same shape as `users` /
