@@ -10,7 +10,7 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
   },
-  reporter: 'html',
+  reporter: [['html'], ['./reporters/FriendlyReporter.ts']],
   use: {
     baseURL: 'https://www.saucedemo.com',
     trace: 'on-first-retry',

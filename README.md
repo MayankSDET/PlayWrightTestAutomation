@@ -649,7 +649,29 @@ copy them when you add a new integration's config file:
 
 ## Reports
 
-The `html` reporter (`playwright.config.ts`) writes `playwright-report/index.html` after
-every run. `npm run report` opens it. `test-results/` holds the supporting artifacts
-(screenshots on failure, and traces — captured only `on-first-retry`, so mainly relevant
-on CI where `retries: 2`; locally `retries: 0` means no retry, so no trace).
+`playwright.config.ts`'s `reporter` array writes **two** reports on every `npm test` run:
+
+- **`playwright-report/index.html`** (the built-in `html` reporter) — the technical
+  report: stack traces, code locations, screenshots on failure. `npm run report` opens
+  it. `test-results/` holds the supporting artifacts (screenshots, and traces captured
+  only `on-first-retry`, so mainly relevant on CI where `retries: 2`; locally
+  `retries: 0` means no retry, so no trace).
+- **`friendly-report/index.html`** (`reporters/FriendlyReporter.ts`, a custom reporter)
+  — a plain-language pass/fail summary for a non-technical reader: no stack traces, no
+  file paths, just "Shopping Website: 14/14 passing" grouped by feature area, with
+  failures explained as either **Needs setup** (a placeholder credential, not a bug —
+  AWS/Azure/reqres.in all show this until real accounts are connected) or **Problem
+  found** (something a developer should look at). Open the file directly in a browser;
+  it's gitignored like the other report output, so it's regenerated fresh each run.
+
+### Adding a new feature area to the friendly report
+
+`FriendlyReporter.ts` maps each spec file to a section by a hardcoded `sectionKeyFor()`
+lookup (folder prefix, e.g. `ui/tests` → `ui`, or exact file, e.g.
+`api/tests/reqres-user.spec.ts` → `api-user`) and a `SECTION_META` entry (a plain-language
+`label` and one-sentence `blurb`). Adding a new domain's tests to the friendly report
+means adding one entry to each of `SECTION_META`, `SECTION_ORDER`, and `sectionKeyFor()`
+— specs that don't match any entry are silently omitted from the friendly report (they
+still appear in the full `html` report). If a domain's failures are credential-gated the
+same way AWS/Azure/reqres.in are, add a matching branch to `blockedReason()` so they're
+labeled "Needs setup" instead of "Problem found".

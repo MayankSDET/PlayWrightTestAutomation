@@ -1,6 +1,8 @@
+// Inventory page: product listing, cart badge updates, and sort ordering on saucedemo.com.
 import { test, expect } from '../../fixtures/base.fixture';
 import { products } from '../utils/Products';
 
+// Logged-in user sees the product list, including a known product.
 test('Inventory page lists products after login', async ({ authenticatedInventoryPage }) => {
   await authenticatedInventoryPage.verifyInventoryVisible();
   const names = await authenticatedInventoryPage.getProductNames();
@@ -8,6 +10,7 @@ test('Inventory page lists products after login', async ({ authenticatedInventor
   expect(names).toContain(products.backpack);
 });
 
+// Cart badge count increments/decrements as products are added and removed.
 test('Adding and removing a product updates the cart badge', async ({ authenticatedInventoryPage }) => {
   expect(await authenticatedInventoryPage.getCartItemCount()).toBe(0);
 
@@ -21,6 +24,7 @@ test('Adding and removing a product updates the cart badge', async ({ authentica
   expect(await authenticatedInventoryPage.getCartItemCount()).toBe(1);
 });
 
+// "Price (low to high)" sort orders products by ascending price.
 test('Sorting by price low to high orders products ascending', async ({ authenticatedInventoryPage }) => {
   await authenticatedInventoryPage.sortBy('lohi');
   const prices = await authenticatedInventoryPage.getProductPrices();
@@ -28,6 +32,7 @@ test('Sorting by price low to high orders products ascending', async ({ authenti
   expect(prices).toEqual(sorted);
 });
 
+// "Name (Z to A)" sort orders products by descending name.
 test('Sorting by name Z to A orders products descending', async ({ authenticatedInventoryPage }) => {
   await authenticatedInventoryPage.sortBy('za');
   const names = await authenticatedInventoryPage.getProductNames();

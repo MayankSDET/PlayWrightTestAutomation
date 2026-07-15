@@ -1,5 +1,7 @@
+// Product catalog API: CRUD lifecycle for an object via objectApiClient.
 import { test, expect } from '../../fixtures/base.fixture';
 
+// Create an object, fetch it, update its name/data, then delete and confirm it's gone.
 test('create -> get -> update -> delete: chained object lifecycle', async ({ objectApiClient }) => {
   const created = await objectApiClient.create({
     name: 'Playwright Dependency Test Object',

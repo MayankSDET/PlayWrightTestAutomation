@@ -1,7 +1,9 @@
+// Checkout flow: full purchase path plus required-field validation.
 import { test, expect } from '../../fixtures/base.fixture';
 import { checkoutInfo } from '../utils/CheckoutData';
 import { products } from '../utils/Products';
 
+// Full happy path: add items, verify cart and totals, fill checkout info, confirm order.
 test('End-to-end checkout: browse -> cart -> checkout -> confirmation', async ({
   authenticatedInventoryPage,
   cartPage,
@@ -33,6 +35,7 @@ test('End-to-end checkout: browse -> cart -> checkout -> confirmation', async ({
   await checkoutCompletePage.verifyOrderComplete();
 });
 
+// Submitting checkout step one without a first name shows a required-field error.
 test('Checkout requires customer information before continuing', async ({
   authenticatedInventoryPage,
   cartPage,
