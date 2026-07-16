@@ -6,6 +6,9 @@ import { CheckoutStepOnePage } from '../ui/pages/CheckoutStepOnePage';
 import { CheckoutStepTwoPage } from '../ui/pages/CheckoutStepTwoPage';
 import { CheckoutCompletePage } from '../ui/pages/CheckoutCompletePage';
 import { S3Service } from '../aws/services/S3Service';
+import { LambdaService } from '../aws/services/LambdaService';
+import { VpcService } from '../aws/services/VpcService';
+import { Route53Service } from '../aws/services/Route53Service';
 import { BlobService } from '../azure/services/BlobService';
 import { ObjectApiClient } from '../api/clients/ObjectApiClient';
 import { UserApiClient } from '../api/clients/UserApiClient';
@@ -31,6 +34,9 @@ type TestFixtures = {
 
 type WorkerFixtures = {
   s3Service: S3Service;
+  lambdaService: LambdaService;
+  vpcService: VpcService;
+  route53Service: Route53Service;
   blobService: BlobService;
   apiRequestContext: APIRequestContext;
   reqresRequestContext: APIRequestContext;
@@ -71,6 +77,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   s3Service: [async ({}, use) => {
     await use(new S3Service());
+  }, { scope: 'worker' }],
+
+  lambdaService: [async ({}, use) => {
+    await use(new LambdaService());
+  }, { scope: 'worker' }],
+
+  vpcService: [async ({}, use) => {
+    await use(new VpcService());
+  }, { scope: 'worker' }],
+
+  route53Service: [async ({}, use) => {
+    await use(new Route53Service());
   }, { scope: 'worker' }],
 
   blobService: [async ({}, use) => {

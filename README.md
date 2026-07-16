@@ -61,11 +61,18 @@ database/                   SQL database testing (SQLite)
   utils/                          Placeholder — database-domain test data (empty for now)
   .env / .env.example              DB_FILE_PATH (gitignored real values / committed template)
 
-aws/                         AWS S3
+aws/                         AWS: S3, Lambda, VPC, Route 53
   services/
     S3Service.ts                   Wraps the AWS SDK v3 S3Client
-  config/awsConfig.ts               Region/credentials/bucket
-  tests/                          s3.spec.ts
+    LambdaService.ts                 Wraps the AWS SDK v3 LambdaClient
+    VpcService.ts                     Wraps the AWS SDK v3 EC2Client (VPC/subnet reads)
+    Route53Service.ts                  Wraps the AWS SDK v3 Route53Client
+  config/
+    awsConfig.ts                     Shared region/credentials + S3 bucket name
+    lambdaConfig.ts                    Shared credentials + Lambda function name
+    vpcConfig.ts                        Shared credentials + VPC id
+    route53Config.ts                     Shared credentials + hosted zone id
+  tests/                          s3.spec.ts, lambda.spec.ts, vpc.spec.ts, route53.spec.ts
   utils/                          Placeholder — AWS-domain test data (empty for now)
   .env / .env.example              AWS_* vars (gitignored real values / committed template)
 
@@ -109,7 +116,9 @@ config. `database/` ships a default that works with zero setup (an in-memory SQL
 `api/` is split: `api-object.spec.ts` (against `api.restful-api.dev`) needs no
 credentials, but `reqres-user.spec.ts` needs a real `REQRES_API_KEY` — get a free one at
 [app.reqres.in/api-keys](https://app.reqres.in/api-keys). `aws/` and `azure/` also need
-real credentials before their tests can pass.
+real credentials before their tests can pass — for `aws/`, that includes an existing S3
+bucket, Lambda function, VPC, and Route 53 hosted zone (`AWS_S3_BUCKET_NAME`,
+`AWS_LAMBDA_FUNCTION_NAME`, `AWS_VPC_ID`, `AWS_HOSTED_ZONE_ID` in `aws/.env`).
 
 Run everything:
 
@@ -290,18 +299,23 @@ image/text block) — specs only assert on it when it's present, and always asse
 
 ---
 
-## 3. AWS S3
+## 3. AWS (S3, Lambda, VPC, Route 53)
 
-**Folder:** `aws/` · **Test:** `aws/tests/s3.spec.ts`
+**Folder:** `aws/` · **Tests:** `aws/tests/s3.spec.ts`, `aws/tests/lambda.spec.ts`,
+`aws/tests/vpc.spec.ts`, `aws/tests/route53.spec.ts`
+
+This domain holds one service class per AWS resource, all sharing one set of AWS
+credentials but each otherwise independent — same shape as `api/`'s two REST clients.
 
 ### What's here
 
-`aws/config/awsConfig.ts` reads its env vars from `aws/.env` (via `loadEnv(path.resolve(__dirname,
-'../.env'))`, resolving to `aws/.env`) and exposes `getAwsConfig()`. It does **not**
-validate eagerly at import time — `required()` only runs when `getAwsConfig()` is
-actually called, which only happens inside `S3Service`'s constructor, which only runs
-when a test declares the `s3Service` fixture. That's why a test that never touches S3
-still runs fine even with no `aws/.env` configured at all.
+**Shared credentials:** `aws/config/awsConfig.ts` exports `getAwsCredentials()`
+(`region`/`accessKeyId`/`secretAccessKey`, read from `aws/.env`), which every other
+config in this domain calls so the three credential vars aren't re-declared per service.
+`getAwsConfig()` (used by `S3Service`) layers `AWS_S3_BUCKET_NAME` on top of that.
+Validation is still fully **lazy** — `required()` only runs when a service's constructor
+actually runs, which only happens when a test declares that service's fixture, so a test
+that never touches Lambda/VPC/Route 53 runs fine without their env vars set.
 
 ```env
 # aws/.env
@@ -309,29 +323,50 @@ AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 AWS_S3_BUCKET_NAME=...
+AWS_LAMBDA_FUNCTION_NAME=...
+AWS_VPC_ID=...
+AWS_HOSTED_ZONE_ID=...
 ```
 
-`aws/services/S3Service.ts` wraps the AWS SDK v3 `S3Client` behind three methods:
-`fileExists(key)`, `listFiles(prefix)`, `getFileContent(key)`. The constructor takes an
-**optional** bucket name override (`bucket?: string`) — use that in a specific test if it
-needs to point at a different bucket than the one in `aws/.env`, without adding new config.
+| Service | Own config | Extra env var | Methods |
+|---|---|---|---|
+| `S3Service` | `awsConfig.ts` | `AWS_S3_BUCKET_NAME` | `fileExists(key)`, `listFiles(prefix)`, `getFileContent(key)` |
+| `LambdaService` | `lambdaConfig.ts` | `AWS_LAMBDA_FUNCTION_NAME` | `functionExists()`, `invoke(payload)`, `listFunctions()` |
+| `VpcService` | `vpcConfig.ts` | `AWS_VPC_ID` | `vpcExists()`, `getCidrBlock()`, `listSubnetIds()` |
+| `Route53Service` | `route53Config.ts` | `AWS_HOSTED_ZONE_ID` | `hostedZoneExists()`, `listRecordNames()`, `recordExists(name, type)` |
+
+Each service's constructor takes an **optional** override for its resource id (bucket
+name / function name / VPC id / hosted zone id) — pass one in a specific test to point at
+a different resource than the one in `aws/.env`, without adding new config, the same way
+`S3Service`'s `bucket?: string` param already worked.
 
 ```ts
-test('Verify an uploaded file exists in the S3 bucket', async ({ s3Service }) => {
-  expect(await s3Service.fileExists('sample-folder/sample-file.txt')).toBeTruthy();
+test('Verify the configured Lambda function exists', async ({ lambdaService }) => {
+  expect(await lambdaService.functionExists()).toBeTruthy();
+});
+
+test('List subnets returns at least one subnet', async ({ vpcService }) => {
+  expect((await vpcService.listSubnetIds()).length).toBeGreaterThan(0);
 });
 ```
 
-### Adding a new S3 operation
+Each service catches its resource's own "not found" exception in its `*Exists()` method
+and returns `false`, re-throwing everything else — `ResourceNotFoundException` for
+Lambda, EC2's `InvalidVpcID.NotFound` error name for VPC, `NoSuchHostedZone` for
+Route 53 — the same pattern as `S3Service.fileExists()`'s `S3ServiceException` check.
 
-1. Add a method to `S3Service` (e.g. `uploadFile(key, body)`, `deleteFile(key)`), using
-   `this.client.send(new SomeCommand({ Bucket: this.bucket, ... }))` — same shape as the
-   existing three methods.
-2. If it needs a new AWS SDK import, add it to the `@aws-sdk/client-s3` import at the top
-   of the file — don't introduce a second S3 client.
-3. Never expose `this.client` publicly. If a test needs a capability, that capability
-   becomes a named method on `S3Service`, not a reason to leak the SDK client.
-4. Put its spec in `aws/tests/`.
+### Adding a new AWS resource
+
+1. Create `aws/config/yourResourceConfig.ts`: `loadEnv(...)` the same `aws/.env` path,
+   call `getAwsCredentials()` from `awsConfig.ts` for the shared vars, and `required()`
+   only the one or two vars unique to your resource.
+2. Create `aws/services/YourResourceService.ts`: constructor takes an optional id
+   override, builds its own SDK client from `region`/`accessKeyId`/`secretAccessKey`, and
+   exposes named methods — never leak the raw SDK client the way `S3Service` doesn't.
+3. Add its npm package (`@aws-sdk/client-...`) to `package.json`.
+4. Register it as a **worker-scoped** fixture in `fixtures/base.fixture.ts` — copy the
+   `s3Service` fixture entry.
+5. Put its spec in `aws/tests/`, and add its extra env var to `aws/.env.example`.
 
 ---
 
@@ -549,6 +584,9 @@ test('...', async ({ loginPage, s3Service, objectApiClient, userRepository }) =>
 | `authenticatedInventoryPage` | test | `loginPage` + `inventoryPage` | `inventoryPage`, already logged in as `users.standard` |
 | `cartPage` / `checkoutStepOnePage` / `checkoutStepTwoPage` / `checkoutCompletePage` | test | `new ...Page(page)` | Page objects for the cart and each checkout step |
 | `s3Service` | **worker** | `new S3Service()` | Shared AWS S3 client |
+| `lambdaService` | **worker** | `new LambdaService()` | Shared AWS Lambda client |
+| `vpcService` | **worker** | `new VpcService()` | Shared AWS EC2 client (VPC/subnet reads) |
+| `route53Service` | **worker** | `new Route53Service()` | Shared AWS Route 53 client |
 | `blobService` | **worker** | `new BlobService()` | Shared Azure Blob client |
 | `apiRequestContext` | **worker** | `playwright.request.newContext(...)` | Shared HTTP context for `api.restful-api.dev` calls |
 | `objectApiClient` | test | `apiRequestContext` | Thin wrapper exposing the REST client |

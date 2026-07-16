@@ -27,8 +27,8 @@ const SECTION_META: Record<string, { label: string; blurb: string }> = {
     blurb: 'Can the app look up users and handle account registration/login on the external accounts service?',
   },
   aws: {
-    label: 'Cloud File Storage — Amazon (AWS)',
-    blurb: "Can the app find and read files stored in Amazon's cloud storage?",
+    label: 'Cloud Infrastructure — Amazon (AWS)',
+    blurb: 'Can the app reach its AWS resources — stored files, serverless functions, network setup, and DNS records?',
   },
   azure: {
     label: 'Cloud File Storage — Microsoft (Azure)',
