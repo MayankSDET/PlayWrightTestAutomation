@@ -31,8 +31,8 @@ const SECTION_META: Record<string, { label: string; blurb: string }> = {
     blurb: 'Can the app reach its AWS resources — stored files, serverless functions, network setup, and DNS records?',
   },
   azure: {
-    label: 'Cloud File Storage — Microsoft (Azure)',
-    blurb: "Can the app find and read files stored in Microsoft's cloud storage?",
+    label: 'Cloud Infrastructure — Microsoft (Azure)',
+    blurb: 'Can the app reach its Azure resources — stored files, serverless functions, network setup, and DNS records?',
   },
 };
 

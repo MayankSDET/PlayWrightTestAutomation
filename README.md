@@ -76,11 +76,20 @@ aws/                         AWS: S3, Lambda, VPC, Route 53
   utils/                          Placeholder — AWS-domain test data (empty for now)
   .env / .env.example              AWS_* vars (gitignored real values / committed template)
 
-azure/                       Azure Blob Storage
+azure/                       Azure: Blob Storage, VNet, DNS, Functions
   services/
     BlobService.ts                  Wraps @azure/storage-blob's BlobServiceClient
-  config/azureConfig.ts             Connection string/container
-  tests/                          blob.spec.ts
+    VNetService.ts                    Wraps @azure/arm-network's NetworkManagementClient
+    DnsService.ts                      Wraps @azure/arm-dns's DnsManagementClient
+    FunctionsService.ts                 Wraps @azure/arm-appservice + a plain HTTP invoke
+    armErrors.ts                          Shared "is this a 404 from an ARM client?" check
+  config/
+    azureConfig.ts                   Connection string/container (Blob, data plane)
+    azureArmConfig.ts                  Shared tenant/client/subscription/resource group
+    vnetConfig.ts                        Shared ARM creds + VNet name
+    dnsConfig.ts                          Shared ARM creds + DNS zone name
+    functionsConfig.ts                     Shared ARM creds + function app name/URL/key
+  tests/                          blob.spec.ts, vnet.spec.ts, dns.spec.ts, functions.spec.ts
   utils/                          Placeholder — Azure-domain test data (empty for now)
   .env / .env.example              AZURE_* vars (gitignored real values / committed template)
 
@@ -118,7 +127,12 @@ credentials, but `reqres-user.spec.ts` needs a real `REQRES_API_KEY` — get a f
 [app.reqres.in/api-keys](https://app.reqres.in/api-keys). `aws/` and `azure/` also need
 real credentials before their tests can pass — for `aws/`, that includes an existing S3
 bucket, Lambda function, VPC, and Route 53 hosted zone (`AWS_S3_BUCKET_NAME`,
-`AWS_LAMBDA_FUNCTION_NAME`, `AWS_VPC_ID`, `AWS_HOSTED_ZONE_ID` in `aws/.env`).
+`AWS_LAMBDA_FUNCTION_NAME`, `AWS_VPC_ID`, `AWS_HOSTED_ZONE_ID` in `aws/.env`); for
+`azure/`, that's a storage connection string/container plus an AD app registration with
+rights on the resource group and an existing VNet, DNS zone, and function app
+(`AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_SUBSCRIPTION_ID`/
+`AZURE_RESOURCE_GROUP`, `AZURE_VNET_NAME`, `AZURE_DNS_ZONE_NAME`,
+`AZURE_FUNCTION_APP_NAME`/`AZURE_FUNCTION_URL`/`AZURE_FUNCTION_KEY` in `azure/.env`).
 
 Run everything:
 
@@ -135,7 +149,7 @@ npx playwright test ui/tests           # UI (saucedemo.com)
 npx playwright test performance/tests  # Page-load performance & Web Vitals
 npx playwright test api/tests          # REST API
 npx playwright test aws/tests          # AWS S3
-npx playwright test azure/tests        # Azure Blob Storage
+npx playwright test azure/tests        # Azure: Blob Storage, VNet, DNS, Functions
 npx playwright test database/tests     # SQL (SQLite)
 ```
 
@@ -370,37 +384,94 @@ Route 53 — the same pattern as `S3Service.fileExists()`'s `S3ServiceException`
 
 ---
 
-## 4. Azure Blob Storage
+## 4. Azure (Blob Storage, VNet, DNS, Functions)
 
-**Folder:** `azure/` · **Test:** `azure/tests/blob.spec.ts`
+**Folder:** `azure/` · **Tests:** `azure/tests/blob.spec.ts`, `azure/tests/vnet.spec.ts`,
+`azure/tests/dns.spec.ts`, `azure/tests/functions.spec.ts`
+
+Like `aws/`, this domain holds one service class per Azure resource — but unlike AWS,
+Azure Blob Storage (data plane, a connection string) and resource management (control
+plane, an AD app registration) use genuinely different credentials, so there are **two**
+independent credential sets instead of one shared one.
 
 ### What's here
 
-Same pattern as S3, using `@azure/storage-blob`'s `BlobServiceClient` instead:
-`fileExists(blobName)`, `listFiles(prefix)`, `getFileContent(blobName)`. The constructor
-takes an optional container-name override, same idea as `S3Service`'s optional bucket.
-`azure/config/azureConfig.ts` reads its env vars from `azure/.env`, the same way
-`awsConfig.ts` reads from `aws/.env`.
+**`azure/services/BlobService.ts`** is unchanged: `@azure/storage-blob`'s
+`BlobServiceClient`, authenticated via a connection string, behind `fileExists(blobName)`,
+`listFiles(prefix)`, `getFileContent(blobName)`. `azure/config/azureConfig.ts` reads
+`AZURE_STORAGE_CONNECTION_STRING` / `AZURE_STORAGE_CONTAINER_NAME` from `azure/.env`.
+
+**Shared ARM credentials:** `azure/config/azureArmConfig.ts` exports
+`getAzureArmCredentials()` (`tenantId`/`clientId`/`clientSecret`/`subscriptionId`/
+`resourceGroupName` — an AD app registration with rights on the resource group), which
+`vnetConfig.ts`, `dnsConfig.ts`, and `functionsConfig.ts` each build on, adding only the
+one env var unique to their resource. Same lazy-validation rule as everywhere else:
+`required()` only runs when that resource's fixture is actually declared by a test.
 
 ```env
 # azure/.env
 AZURE_STORAGE_CONNECTION_STRING=...
 AZURE_STORAGE_CONTAINER_NAME=...
+
+AZURE_TENANT_ID=...
+AZURE_CLIENT_ID=...
+AZURE_CLIENT_SECRET=...
+AZURE_SUBSCRIPTION_ID=...
+AZURE_RESOURCE_GROUP=...
+
+AZURE_VNET_NAME=...
+AZURE_DNS_ZONE_NAME=...
+AZURE_FUNCTION_APP_NAME=...
+AZURE_FUNCTION_URL=...
+AZURE_FUNCTION_KEY=...
 ```
 
+| Service | Own config | Extra env var(s) | Methods |
+|---|---|---|---|
+| `BlobService` | `azureConfig.ts` | `AZURE_STORAGE_CONTAINER_NAME` | `fileExists(blobName)`, `listFiles(prefix)`, `getFileContent(blobName)` |
+| `VNetService` | `vnetConfig.ts` | `AZURE_VNET_NAME` | `vnetExists()`, `getAddressSpace()`, `listSubnetNames()` |
+| `DnsService` | `dnsConfig.ts` | `AZURE_DNS_ZONE_NAME` | `zoneExists()`, `listRecordSetNames()`, `recordExists(name, type)` |
+| `FunctionsService` | `functionsConfig.ts` | `AZURE_FUNCTION_APP_NAME`, `AZURE_FUNCTION_URL`, `AZURE_FUNCTION_KEY` | `functionAppExists()`, `invoke(payload)`, `listFunctions()` |
+
+`VNetService`, `DnsService`, and `FunctionsService` are built on the management-plane SDKs
+(`@azure/arm-network`, `@azure/arm-dns`, `@azure/arm-appservice`) via
+`@azure/identity`'s `ClientSecretCredential`, unlike `BlobService`'s data-plane client.
+Their `*Exists()` methods all catch the same shape of error — a `RestError` with
+`statusCode: 404` — through one shared helper, `azure/services/armErrors.ts`'s
+`isAzureNotFoundError()`, instead of each service repeating an identical check.
+`FunctionsService.invoke()` is the one method that doesn't go through the ARM client at
+all: Azure Functions are invoked over plain HTTP (`fetch` against the function's trigger
+URL with its function key), not through a management API, mirroring how `LambdaService`
+in `aws/` uses a dedicated `InvokeCommand` instead of a "management" call.
+
 ```ts
-test('Verify an uploaded file exists in the Blob container', async ({ blobService }) => {
-  expect(await blobService.fileExists('sample-folder/sample-file.txt')).toBeTruthy();
+test('Verify the configured VNet exists', async ({ vnetService }) => {
+  expect(await vnetService.vnetExists()).toBeTruthy();
+});
+
+test('Invoking the function returns a successful status code', async ({ functionsService }) => {
+  const result = await functionsService.invoke({ sample: 'payload' });
+  expect(result.statusCode).toBe(200);
 });
 ```
 
-### Adding a new Blob Storage operation
+Each service's constructor takes an **optional** override for its resource name (VNet
+name / DNS zone name / function app name), same idea as `S3Service`'s optional bucket.
 
-Same recipe as S3: add a method to `BlobService` that goes through
-`this.containerClient`, following the shape of `fileExists`/`listFiles`/`getFileContent`.
-The `streamToString()` helper at the bottom of the file exists because Azure's SDK
-returns a Node stream for downloads — reuse it for any new method that reads blob
-content, don't write a second stream-reading helper. Put its spec in `azure/tests/`.
+### Adding a new Azure resource
+
+1. Create `azure/config/yourResourceConfig.ts`: `loadEnv(...)` the same `azure/.env`
+   path, call `getAzureArmCredentials()` from `azureArmConfig.ts` for the shared vars
+   (or `azureConfig.ts`'s connection string, if it's data-plane like Blob), and
+   `required()` only the var(s) unique to your resource.
+2. Create `azure/services/YourResourceService.ts`: constructor takes an optional name
+   override, builds its own client (ARM client + `ClientSecretCredential`, or the
+   relevant data-plane SDK), and exposes named methods — reuse `isAzureNotFoundError()`
+   from `armErrors.ts` for any ARM-backed `*Exists()` check instead of writing a new one.
+3. Add its npm package(s) (`@azure/arm-...`) to `package.json`.
+4. Register it as a **worker-scoped** fixture in `fixtures/base.fixture.ts` — copy the
+   `blobService` fixture entry.
+5. Put its spec in `azure/tests/`, and add its extra env var(s) to `azure/.env.example`.
 
 ---
 
@@ -588,6 +659,9 @@ test('...', async ({ loginPage, s3Service, objectApiClient, userRepository }) =>
 | `vpcService` | **worker** | `new VpcService()` | Shared AWS EC2 client (VPC/subnet reads) |
 | `route53Service` | **worker** | `new Route53Service()` | Shared AWS Route 53 client |
 | `blobService` | **worker** | `new BlobService()` | Shared Azure Blob client |
+| `vnetService` | **worker** | `new VNetService()` | Shared Azure VNet (ARM network) client |
+| `dnsService` | **worker** | `new DnsService()` | Shared Azure DNS (ARM) client |
+| `functionsService` | **worker** | `new FunctionsService()` | Shared Azure Functions (ARM + HTTP invoke) client |
 | `apiRequestContext` | **worker** | `playwright.request.newContext(...)` | Shared HTTP context for `api.restful-api.dev` calls |
 | `objectApiClient` | test | `apiRequestContext` | Thin wrapper exposing the REST client |
 | `reqresRequestContext` | **worker** | `playwright.request.newContext(...)` with the `x-api-key` header set | Shared HTTP context for reqres.in calls |

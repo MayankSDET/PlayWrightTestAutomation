@@ -10,6 +10,9 @@ import { LambdaService } from '../aws/services/LambdaService';
 import { VpcService } from '../aws/services/VpcService';
 import { Route53Service } from '../aws/services/Route53Service';
 import { BlobService } from '../azure/services/BlobService';
+import { VNetService } from '../azure/services/VNetService';
+import { DnsService } from '../azure/services/DnsService';
+import { FunctionsService } from '../azure/services/FunctionsService';
 import { ObjectApiClient } from '../api/clients/ObjectApiClient';
 import { UserApiClient } from '../api/clients/UserApiClient';
 import { getApiConfig } from '../api/config/apiConfig';
@@ -38,6 +41,9 @@ type WorkerFixtures = {
   vpcService: VpcService;
   route53Service: Route53Service;
   blobService: BlobService;
+  vnetService: VNetService;
+  dnsService: DnsService;
+  functionsService: FunctionsService;
   apiRequestContext: APIRequestContext;
   reqresRequestContext: APIRequestContext;
   dbService: DbService;
@@ -93,6 +99,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   blobService: [async ({}, use) => {
     await use(new BlobService());
+  }, { scope: 'worker' }],
+
+  vnetService: [async ({}, use) => {
+    await use(new VNetService());
+  }, { scope: 'worker' }],
+
+  dnsService: [async ({}, use) => {
+    await use(new DnsService());
+  }, { scope: 'worker' }],
+
+  functionsService: [async ({}, use) => {
+    await use(new FunctionsService());
   }, { scope: 'worker' }],
 
   apiRequestContext: [async ({ playwright }, use) => {
