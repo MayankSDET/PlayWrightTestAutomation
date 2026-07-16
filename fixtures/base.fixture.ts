@@ -114,7 +114,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   }, { scope: 'worker' }],
 
   apiRequestContext: [async ({ playwright }, use) => {
-    const context = await playwright.request.newContext({ baseURL: getApiConfig().baseURL });
+    const config = getApiConfig();
+    const context = await playwright.request.newContext({
+      baseURL: config.baseURL,
+      extraHTTPHeaders: config.apiKey ? { 'x-api-key': config.apiKey } : undefined,
+    });
     await use(context);
     await context.dispose();
   }, { scope: 'worker' }],

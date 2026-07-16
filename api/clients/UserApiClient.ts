@@ -1,4 +1,3 @@
-import { expect } from '@playwright/test';
 import { BaseApiClient } from './BaseApiClient';
 
 export type ReqresUser = {
@@ -64,42 +63,44 @@ export class UserApiClient extends BaseApiClient {
 
   async list(page: number): Promise<UserListPage> {
     const response = await this.request.get(`${this.basePath}?page=${page}`);
-    expect(response.ok()).toBeTruthy();
+    await this.ensureOk(response, `List users (page ${page})`);
     return response.json();
   }
 
   async getById(id: number): Promise<{ data: ReqresUser }> {
     const response = await this.request.get(`${this.basePath}/${id}`);
-    expect(response.ok()).toBeTruthy();
+    await this.ensureOk(response, `Get user ${id}`);
     return response.json();
   }
 
   async exists(id: number): Promise<boolean> {
     const response = await this.request.get(`${this.basePath}/${id}`);
-    return response.ok();
+    if (response.status() === 404) return false;
+    await this.ensureOk(response, `Check user ${id} exists`);
+    return true;
   }
 
   async create(payload: CreateUserPayload): Promise<CreatedUser> {
     const response = await this.request.post(this.basePath, { data: payload });
-    expect(response.status()).toBe(201);
+    await this.ensureStatus(response, 201, 'Create user');
     return response.json();
   }
 
   async update(id: number, payload: CreateUserPayload): Promise<UpdatedUser> {
     const response = await this.request.put(`${this.basePath}/${id}`, { data: payload });
-    expect(response.ok()).toBeTruthy();
+    await this.ensureOk(response, `Update user ${id}`);
     return response.json();
   }
 
   async partialUpdate(id: number, payload: Partial<CreateUserPayload>): Promise<UpdatedUser> {
     const response = await this.request.patch(`${this.basePath}/${id}`, { data: payload });
-    expect(response.ok()).toBeTruthy();
+    await this.ensureOk(response, `Partially update user ${id}`);
     return response.json();
   }
 
   async delete(id: number): Promise<void> {
     const response = await this.request.delete(`${this.basePath}/${id}`);
-    expect(response.status()).toBe(204);
+    await this.ensureStatus(response, 204, `Delete user ${id}`);
   }
 
   async register(payload: RegisterPayload): Promise<ApiResult<RegisterSuccess | AuthFailure>> {

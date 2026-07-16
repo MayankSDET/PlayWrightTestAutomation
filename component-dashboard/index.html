@@ -166,19 +166,19 @@
   <div class="page">
     <p class="eyebrow">Component Dashboard</p>
     <h1>What's covered, and is it working?</h1>
-    <p class="meta">Run on July 16, 2026 at 2:47 PM · 15.3s · overall: failed</p>
+    <p class="meta">Run on July 16, 2026 at 2:59 PM · 15.3s · overall: failed</p>
 
     <div class="stat-row">
       <div class="stat-tile">
-        <span class="stat-value">19/49</span>
+        <span class="stat-value">17/49</span>
         <span class="stat-label">Checks passing</span>
       </div>
       <div class="stat-tile stat-tile--good">
-        <span class="stat-value">9/18</span>
+        <span class="stat-value">8/18</span>
         <span class="stat-label">Components fully green</span>
       </div>
       <div class="stat-tile stat-tile--warning">
-        <span class="stat-value">9</span>
+        <span class="stat-value">10</span>
         <span class="stat-label">Need setup</span>
       </div>
       <div class="stat-tile stat-tile--critical">
@@ -216,20 +216,6 @@
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">Cart reflects items added from the inventory page</span>
-            <span class="test-file">ui/tests/cart.spec.ts</span>
-          </span>
-        </li>
-        <li class="test-row test-row--good">
-          <span class="test-dot" aria-hidden="true"></span>
-          <span class="test-body">
-            <span class="test-title">Removing an item from the cart page removes it from the list</span>
-            <span class="test-file">ui/tests/cart.spec.ts</span>
-          </span>
-        </li>
-        <li class="test-row test-row--good">
-          <span class="test-dot" aria-hidden="true"></span>
-          <span class="test-body">
             <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
             <span class="test-file">ui/tests/checkout.spec.ts</span>
           </span>
@@ -237,8 +223,22 @@
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
+            <span class="test-title">Cart reflects items added from the inventory page</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
             <span class="test-title">Checkout requires customer information before continuing</span>
             <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Removing an item from the cart page removes it from the list</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
           </span>
         </li></ul>
       </details>
@@ -331,8 +331,22 @@
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
+            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
             <span class="test-title">Cart reflects items added from the inventory page</span>
             <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Checkout requires customer information before continuing</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--good">
@@ -345,22 +359,8 @@
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
-            <span class="test-file">ui/tests/checkout.spec.ts</span>
-          </span>
-        </li>
-        <li class="test-row test-row--good">
-          <span class="test-dot" aria-hidden="true"></span>
-          <span class="test-body">
             <span class="test-title">Inventory page meets load-time and Web Vitals budgets</span>
             <span class="test-file">performance/tests/page-load.spec.ts</span>
-          </span>
-        </li>
-        <li class="test-row test-row--good">
-          <span class="test-dot" aria-hidden="true"></span>
-          <span class="test-body">
-            <span class="test-title">Checkout requires customer information before continuing</span>
-            <span class="test-file">ui/tests/checkout.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--good">
@@ -380,13 +380,6 @@
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">Standard user can log in</span>
-            <span class="test-file">ui/tests/login.spec.ts</span>
-          </span>
-        </li>
-        <li class="test-row test-row--good">
-          <span class="test-dot" aria-hidden="true"></span>
-          <span class="test-body">
             <span class="test-title">Adding and removing a product updates the cart badge</span>
             <span class="test-file">ui/tests/inventory.spec.ts</span>
           </span>
@@ -396,6 +389,13 @@
           <span class="test-body">
             <span class="test-title">Sorting by name Z to A orders products descending</span>
             <span class="test-file">ui/tests/inventory.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Standard user can log in</span>
+            <span class="test-file">ui/tests/login.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--good">
@@ -442,14 +442,14 @@
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">Missing password shows a required-field error</span>
+            <span class="test-title">Invalid credentials show an error and do not log in</span>
             <span class="test-file">ui/tests/login.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--good">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">Invalid credentials show an error and do not log in</span>
+            <span class="test-title">Missing password shows a required-field error</span>
             <span class="test-file">ui/tests/login.spec.ts</span>
           </span>
         </li>
@@ -525,14 +525,14 @@
         <summary>
           <div class="component-card-top">
             <span class="component-name">ObjectApiClient</span>
-            <span class="component-chip component-chip--good">✓ All passing</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
           </div>
           <p class="component-desc">REST client for api.restful-api.dev objects</p>
-          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
-          <span class="component-tally">1/1 tests</span>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/1 tests</span>
         </summary>
         <ul class="test-list">
-        <li class="test-row test-row--good">
+        <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
             <span class="test-title">create -&gt; get -&gt; update -&gt; delete: chained object lifecycle</span>
@@ -548,17 +548,10 @@
             <span class="component-chip component-chip--warning">⚠ Needs setup</span>
           </div>
           <p class="component-desc">REST client for reqres.in users &amp; auth</p>
-          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:9.090909090909092%"></div></div>
-          <span class="component-tally">1/11 tests</span>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/11 tests</span>
         </summary>
         <ul class="test-list">
-        <li class="test-row test-row--warning">
-          <span class="test-dot" aria-hidden="true"></span>
-          <span class="test-body">
-            <span class="test-title">GET /api/users lists users on the requested page</span>
-            <span class="test-file">api/tests/reqres-user.spec.ts</span>
-          </span>
-        </li>
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
@@ -569,11 +562,11 @@
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">GET /api/users/:id returns the matching user</span>
+            <span class="test-title">GET /api/users lists users on the requested page</span>
             <span class="test-file">api/tests/reqres-user.spec.ts</span>
           </span>
         </li>
-        <li class="test-row test-row--good">
+        <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
             <span class="test-title">GET /api/users/:id returns 404 for a nonexistent user</span>
@@ -583,14 +576,14 @@
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">POST /api/register succeeds with a valid email and password</span>
+            <span class="test-title">GET /api/users/:id returns the matching user</span>
             <span class="test-file">api/tests/reqres-user.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">PUT /api/users/:id updates a user</span>
+            <span class="test-title">PATCH /api/users/:id partially updates a user</span>
             <span class="test-file">api/tests/reqres-user.spec.ts</span>
           </span>
         </li>
@@ -604,7 +597,14 @@
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">PATCH /api/users/:id partially updates a user</span>
+            <span class="test-title">PUT /api/users/:id updates a user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">POST /api/register succeeds with a valid email and password</span>
             <span class="test-file">api/tests/reqres-user.spec.ts</span>
           </span>
         </li>
@@ -656,14 +656,14 @@
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">List functions returns at least one function</span>
+            <span class="test-title">Invoking the function returns a successful status code</span>
             <span class="test-file">aws/tests/lambda.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">Invoking the function returns a successful status code</span>
+            <span class="test-title">List functions returns at least one function</span>
             <span class="test-file">aws/tests/lambda.spec.ts</span>
           </span>
         </li></ul>
@@ -710,14 +710,14 @@
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">List files under a given prefix</span>
+            <span class="test-title">Verify an uploaded file exists in the S3 bucket</span>
             <span class="test-file">aws/tests/s3.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">Verify an uploaded file exists in the S3 bucket</span>
+            <span class="test-title">List files under a given prefix</span>
             <span class="test-file">aws/tests/s3.spec.ts</span>
           </span>
         </li></ul>
@@ -744,14 +744,14 @@
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">VPC has a CIDR block assigned</span>
+            <span class="test-title">List subnets returns at least one subnet</span>
             <span class="test-file">aws/tests/vpc.spec.ts</span>
           </span>
         </li>
         <li class="test-row test-row--warning">
           <span class="test-dot" aria-hidden="true"></span>
           <span class="test-body">
-            <span class="test-title">List subnets returns at least one subnet</span>
+            <span class="test-title">VPC has a CIDR block assigned</span>
             <span class="test-file">aws/tests/vpc.spec.ts</span>
           </span>
         </li></ul>

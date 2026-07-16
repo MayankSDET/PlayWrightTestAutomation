@@ -133,7 +133,7 @@ export default class ComponentDashboardReporter implements Reporter {
         title: test.title,
         specFile: file,
         passed,
-        blocked: passed ? null : blockedReason(file),
+        blocked: passed ? null : blockedReason(file, result.error?.message),
       });
     }
   }

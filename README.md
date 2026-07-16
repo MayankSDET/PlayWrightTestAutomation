@@ -491,10 +491,16 @@ against [reqres.in](https://reqres.in).
 
 ### What's here
 
-`api/clients/BaseApiClient.ts` is one line on purpose — it just holds `protected readonly
-request: APIRequestContext` so every API client shares the same constructor shape. This
-layer exists to demonstrate **dependency chaining**: a sequence of calls where each step
-needs data returned by a previous one.
+`api/clients/BaseApiClient.ts` holds the shared constructor (`protected readonly request:
+APIRequestContext`) plus two protected helpers every client uses instead of a bare
+Playwright assertion: `ensureOk(response, action)` throws with the actual status + response
+body when a call fails, and `ensureStatus(response, expectedStatus, action)` does the same
+for an exact-status check (`create`'s `201`, `delete`'s `204`). A failure then reads as
+`Get user 2 failed: 403 Forbidden — {"error":"invalid_api_key",...}` instead of a bare
+`expected true, received false` — the difference between a real bug and a rate-limited or
+misconfigured external service is obvious from the test output alone. This layer also
+demonstrates **dependency chaining**: a sequence of calls where each step needs data
+returned by a previous one.
 
 ```ts
 // api/clients/ObjectApiClient.ts
@@ -520,7 +526,14 @@ test('create -> get -> update -> delete: chained object lifecycle', async ({ obj
 
 `API_BASE_URL` (in `api/config/apiConfig.ts`, read from `api/.env`) defaults to
 `https://api.restful-api.dev`, a free public test API with real (temporary) persistence,
-so this spec runs and passes with zero setup.
+so this spec runs with zero setup — but that API now enforces a shared daily request
+quota per caller (50/24h unauthenticated, 100/24h with a free key), easy to exhaust
+across a handful of local runs. If `api-object.spec.ts` starts failing with `"You've
+reached the daily request limit"`, that's this quota, not a bug — set the optional
+`API_KEY` in `api/.env` (get one at [restful-api.dev/sign-in](https://restful-api.dev/sign-in))
+for the higher tier, or wait for the daily reset. `apiRequestContext` in
+`fixtures/base.fixture.ts` only attaches the `x-api-key` header when `API_KEY` is set, so
+leaving it unset still works exactly as before.
 
 **`api/clients/UserApiClient.ts`** targets reqres.in's user/auth endpoints instead:
 `list(page)`, `getById(id)`, `exists(id)`, `create(payload)`, `update(id, payload)`,
@@ -528,8 +541,10 @@ so this spec runs and passes with zero setup.
 Unlike `ObjectApiClient`, `register()`/`login()` don't assert success internally — both a
 200 (valid credentials) and a 400 (e.g. missing password) are meaningful outcomes a test
 needs to assert on, so these two methods return `{ status, body }` and let the test
-decide what "success" means for that case, the same way `ObjectApiClient.exists()`
-returns a plain boolean instead of throwing on a 404.
+decide what "success" means for that case. `exists(id)` on both clients only treats a
+genuine `404` as "doesn't exist" (`false`) — any other non-2xx (a `403` from a bad key, a
+rate limit, a `500`) still throws via `ensureOk()`, so a broken credential can't
+masquerade as "the record isn't there".
 
 Unlike `api.restful-api.dev`, reqres.in now requires a free `x-api-key` header on every
 request (get one at [app.reqres.in/api-keys](https://app.reqres.in/api-keys)). That key
@@ -575,8 +590,11 @@ these specs assert against — reqres.in's documented fixture accounts/responses
 1. Create `api/clients/YourResourceApiClient.ts`, `extends BaseApiClient`.
 2. Give it a `private readonly basePath` for its endpoint.
 3. One method per operation, each doing `this.request.<verb>(path, { data })`, checking
-   `response.ok()` with `expect()`, then returning `response.json()` — copy the shape of
-   `ObjectApiClient` exactly.
+   the result with `await this.ensureOk(response, 'Some action')` (or `ensureStatus(...)`
+   for an exact code), then returning `response.json()` — copy the shape of
+   `ObjectApiClient` exactly. Don't reach for a bare `expect(response.ok())`: it throws
+   with no information about *why*, which is exactly the debugging dead-end `ensureOk()`
+   exists to avoid.
 4. Export any request/response shapes as `type`s at the top of the file (see `TestObject`
    / `TestObjectPayload`), so callers get typed responses.
 5. Point `API_BASE_URL` in `api/.env` at your real API.
@@ -835,8 +853,16 @@ copy them when you add a new integration's config file:
 
 `playwright.config.ts`'s `reporter` array writes **three** reports on every `npm test` run.
 `reporters/testClassification.ts` holds the two bits of logic all three custom reporters
-would otherwise duplicate: `blockedReason(file)` (is this failure just a missing
-credential, not a bug?) and `escapeHtml(value)`.
+would otherwise duplicate: `blockedReason(file, errorMessage?)` (is this failure just a
+missing credential or an exhausted quota, not a bug?) and `escapeHtml(value)`. Some
+domains are blocked by file path alone (aws/azure/reqres-user.spec.ts always need a real
+credential); others, like `api-object.spec.ts`, run fine with zero setup until a shared
+resource (its daily request quota) runs out, so `blockedReason` also pattern-matches a
+few well-known external-service error signatures in the thrown error's own message
+(`"daily request limit"`, `"invalid_api_key"`, `"Missing required environment
+variable"`) — which is exactly why `BaseApiClient.ensureOk()`/`ensureStatus()` throw with
+the real status and response body instead of a bare assertion: the reporters can only
+classify a failure as accurately as the error message describes it.
 
 - **`playwright-report/index.html`** (the built-in `html` reporter) — the technical
   report: stack traces, code locations, screenshots on failure. `npm run report` opens

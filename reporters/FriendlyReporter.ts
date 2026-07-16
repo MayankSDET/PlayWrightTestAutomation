@@ -76,7 +76,7 @@ export default class FriendlyReporter implements Reporter {
     this.bySection.get(key)!.tests.push({
       title: test.title,
       passed,
-      blocked: passed ? null : blockedReason(file),
+      blocked: passed ? null : blockedReason(file, result.error?.message),
     });
   }
 
