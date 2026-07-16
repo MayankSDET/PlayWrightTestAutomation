@@ -104,6 +104,11 @@ performance/                Page-load performance & Core Web Vitals (saucedemo.c
 fixtures/
   base.fixture.ts             Wires every class above into Playwright's `test`
 
+reporters/                  Custom Playwright reporters (see Reports section below)
+  testClassification.ts        Shared blockedReason()/escapeHtml() helpers
+  FriendlyReporter.ts             Plain-language report -> friendly-report/index.html
+  ComponentDashboardReporter.ts     Per-component dashboard -> component-dashboard/index.html
+
 config/
   loadEnv.ts                    Loads a given .env path exactly once; called by each domain's config with its own domain's .env
 ```
@@ -828,20 +833,36 @@ copy them when you add a new integration's config file:
 
 ## Reports
 
-`playwright.config.ts`'s `reporter` array writes **two** reports on every `npm test` run:
+`playwright.config.ts`'s `reporter` array writes **three** reports on every `npm test` run.
+`reporters/testClassification.ts` holds the two bits of logic all three custom reporters
+would otherwise duplicate: `blockedReason(file)` (is this failure just a missing
+credential, not a bug?) and `escapeHtml(value)`.
 
 - **`playwright-report/index.html`** (the built-in `html` reporter) — the technical
   report: stack traces, code locations, screenshots on failure. `npm run report` opens
   it. `test-results/` holds the supporting artifacts (screenshots, and traces captured
   only `on-first-retry`, so mainly relevant on CI where `retries: 2`; locally
   `retries: 0` means no retry, so no trace).
-- **`friendly-report/index.html`** (`reporters/FriendlyReporter.ts`, a custom reporter)
-  — a plain-language pass/fail summary for a non-technical reader: no stack traces, no
-  file paths, just "Shopping Website: 14/14 passing" grouped by feature area, with
-  failures explained as either **Needs setup** (a placeholder credential, not a bug —
-  AWS/Azure/reqres.in all show this until real accounts are connected) or **Problem
-  found** (something a developer should look at). Open the file directly in a browser;
-  it's gitignored like the other report output, so it's regenerated fresh each run.
+- **`friendly-report/index.html`** (`reporters/FriendlyReporter.ts`) — a plain-language
+  pass/fail summary for a non-technical reader: no stack traces, no file paths, just
+  "Shopping Website: 14/14 passing" grouped by feature area, with failures explained as
+  either **Needs setup** (a placeholder credential, not a bug — AWS/Azure/reqres.in all
+  show this until real accounts are connected) or **Problem found** (something a
+  developer should look at).
+- **`component-dashboard/index.html`** (`reporters/ComponentDashboardReporter.ts`) — a
+  denser, developer-facing dashboard: one card per actual framework component (every
+  page object, service, and API client — `LoginPage`, `S3Service`, `VNetService`, ...),
+  each showing a pass-rate meter and its own expandable test list, grouped by domain,
+  with hero stats up top (checks passing, components fully green, needing setup, with a
+  real problem, or **not covered by any test yet** — a coverage gap the other two
+  reports don't surface). Unlike `FriendlyReporter.ts`, it needs no hardcoded
+  file-to-section map: `extractFixtureNames()` reads each test's own source at its
+  `test.location.file`/`line` and regex-matches the fixtures it destructures (e.g.
+  `async ({ lambdaService }) => {`), so which spec exercises which component is derived
+  automatically instead of maintained by hand.
+
+All three are gitignored like the other report output, so they're regenerated fresh
+each run — open any of them directly in a browser.
 
 ### Adding a new feature area to the friendly report
 
@@ -852,5 +873,14 @@ lookup (folder prefix, e.g. `ui/tests` → `ui`, or exact file, e.g.
 means adding one entry to each of `SECTION_META`, `SECTION_ORDER`, and `sectionKeyFor()`
 — specs that don't match any entry are silently omitted from the friendly report (they
 still appear in the full `html` report). If a domain's failures are credential-gated the
-same way AWS/Azure/reqres.in are, add a matching branch to `blockedReason()` so they're
-labeled "Needs setup" instead of "Problem found".
+same way AWS/Azure/reqres.in are, add a matching branch to `blockedReason()` (in
+`testClassification.ts`) so they're labeled "Needs setup" instead of "Problem found".
+
+### Adding a new component to the dashboard
+
+Register it once in `ComponentDashboardReporter.ts`'s `COMPONENT_META` — the fixture name
+from `fixtures/base.fixture.ts` as the key, and a `{ component, domain, description }`
+value (add a new `domain` to `DOMAIN_ORDER`/`DOMAIN_LABELS` too if it's a new domain).
+That's the only manual step: once registered, every test that destructures that fixture
+is picked up automatically, and the card shows "No test currently exercises this
+component" until one does — a live coverage gap, not a silent omission.
