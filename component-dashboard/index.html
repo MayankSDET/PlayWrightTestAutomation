@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Component Dashboard</title>
+<style>
+  :root {
+    --bg: #f9f9f7;
+    --surface: #fcfcfb;
+    --border: #e1e0d9;
+    --ink: #0b0b0b;
+    --ink-muted: #52514e;
+    --ink-faint: #898781;
+    --accent: #2a78d6;
+    --good: #0ca30c;
+    --good-bg: rgba(12, 163, 12, 0.1);
+    --warning: #c98500;
+    --warning-bg: rgba(201, 133, 0, 0.12);
+    --critical: #d03b3b;
+    --critical-bg: rgba(208, 59, 59, 0.1);
+    --untested: #898781;
+    --untested-bg: rgba(137, 135, 129, 0.12);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0d0d;
+    --surface: #1a1a19;
+    --border: #2c2c2a;
+    --ink: #ffffff;
+    --ink-muted: #c3c2b7;
+    --ink-faint: #898781;
+    --accent: #3987e5;
+    --good: #0ca30c;
+    --good-bg: rgba(12, 163, 12, 0.16);
+    --warning: #fab219;
+    --warning-bg: rgba(250, 178, 25, 0.16);
+    --critical: #e66767;
+    --critical-bg: rgba(230, 103, 103, 0.16);
+    --untested: #898781;
+    --untested-bg: rgba(137, 135, 129, 0.16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0d0d;
+      --surface: #1a1a19;
+      --border: #2c2c2a;
+      --ink: #ffffff;
+      --ink-muted: #c3c2b7;
+      --ink-faint: #898781;
+      --accent: #3987e5;
+      --good: #0ca30c;
+      --good-bg: rgba(12, 163, 12, 0.16);
+      --warning: #fab219;
+      --warning-bg: rgba(250, 178, 25, 0.16);
+      --critical: #e66767;
+      --critical-bg: rgba(230, 103, 103, 0.16);
+      --untested: #898781;
+      --untested-bg: rgba(137, 135, 129, 0.16);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 56px 24px 96px; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 { font-size: clamp(26px, 3.6vw, 34px); font-weight: 700; margin: 0 0 8px; text-wrap: balance; }
+  .meta {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+    font-size: 13px;
+    margin: 0 0 32px;
+  }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 40px; }
+  .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+  .stat-value { display: block; font-size: 28px; font-weight: 700; margin-bottom: 2px; }
+  .stat-label { font-size: 12.5px; color: var(--ink-muted); }
+  .stat-tile--good .stat-value { color: var(--good); }
+  .stat-tile--warning .stat-value { color: var(--warning); }
+  .stat-tile--critical .stat-value { color: var(--critical); }
+  .stat-tile--untested .stat-value { color: var(--untested); }
+
+  .domain-section { margin-bottom: 36px; }
+  .domain-heading {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .component-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+
+  .component-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .component-card > summary { list-style: none; cursor: pointer; padding: 16px 18px; }
+  .component-card > summary::-webkit-details-marker { display: none; }
+  .component-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .component-name { font-size: 15px; font-weight: 700; }
+  .component-chip {
+    flex: none;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .component-chip--good { color: var(--good); background: var(--good-bg); }
+  .component-chip--warning { color: var(--warning); background: var(--warning-bg); }
+  .component-chip--critical { color: var(--critical); background: var(--critical-bg); }
+  .component-chip--untested { color: var(--untested); background: var(--untested-bg); }
+
+  .component-desc { color: var(--ink-muted); font-size: 13px; margin: 6px 0 12px; }
+
+  .meter { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-bottom: 8px; }
+  .meter-fill { height: 100%; }
+  .meter-fill--good { background: var(--good); }
+  .meter-fill--warning { background: var(--warning); }
+  .meter-fill--critical { background: var(--critical); }
+  .meter-fill--untested { background: var(--untested); }
+
+  .component-tally {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  .test-list { list-style: none; margin: 0; padding: 0 18px 16px; border-top: 1px solid var(--border); }
+  .test-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0 0; font-size: 12.5px; }
+  .test-dot { width: 7px; height: 7px; border-radius: 2px; flex: none; margin-top: 5px; }
+  .test-row--good .test-dot { background: var(--good); }
+  .test-row--warning .test-dot { background: var(--warning); }
+  .test-row--critical .test-dot { background: var(--critical); }
+  .test-body { min-width: 0; }
+  .test-title { display: block; }
+  .test-file {
+    display: block;
+    color: var(--ink-faint);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 11px;
+    margin-top: 1px;
+  }
+  .empty-note { margin: 0; padding: 0 18px 16px; font-size: 12.5px; color: var(--ink-faint); border-top: 1px solid var(--border); padding-top: 10px; }
+
+  footer { margin-top: 40px; font-size: 12.5px; color: var(--ink-muted); }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="page">
+    <p class="eyebrow">Component Dashboard</p>
+    <h1>What's covered, and is it working?</h1>
+    <p class="meta">Run on July 16, 2026 at 2:47 PM · 15.3s · overall: failed</p>
+
+    <div class="stat-row">
+      <div class="stat-tile">
+        <span class="stat-value">19/49</span>
+        <span class="stat-label">Checks passing</span>
+      </div>
+      <div class="stat-tile stat-tile--good">
+        <span class="stat-value">9/18</span>
+        <span class="stat-label">Components fully green</span>
+      </div>
+      <div class="stat-tile stat-tile--warning">
+        <span class="stat-value">9</span>
+        <span class="stat-label">Need setup</span>
+      </div>
+      <div class="stat-tile stat-tile--critical">
+        <span class="stat-value">0</span>
+        <span class="stat-label">Have a real problem</span>
+      </div>
+      <div class="stat-tile stat-tile--untested">
+        <span class="stat-value">0</span>
+        <span class="stat-label">Not covered yet</span>
+      </div>
+    </div>
+
+    
+      <section class="domain-section">
+        <h2 class="domain-heading">UI — saucedemo.com</h2>
+        <div class="component-grid">
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">CartPage</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Shopping cart screen</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">5/5 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Continue shopping returns to the inventory page</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Cart reflects items added from the inventory page</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Removing an item from the cart page removes it from the list</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Checkout requires customer information before continuing</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">CheckoutCompletePage</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Checkout: order confirmation</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">1/1 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">CheckoutStepOnePage</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Checkout: customer information</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">2/2 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Checkout requires customer information before continuing</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">CheckoutStepTwoPage</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Checkout: order overview &amp; totals</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">1/1 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">InventoryPage</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Product listing, sorting, and the cart badge</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">12/12 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Continue shopping returns to the inventory page</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Cart reflects items added from the inventory page</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Removing an item from the cart page removes it from the list</span>
+            <span class="test-file">ui/tests/cart.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">End-to-end checkout: browse -&gt; cart -&gt; checkout -&gt; confirmation</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Inventory page meets load-time and Web Vitals budgets</span>
+            <span class="test-file">performance/tests/page-load.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Checkout requires customer information before continuing</span>
+            <span class="test-file">ui/tests/checkout.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Inventory page lists products after login</span>
+            <span class="test-file">ui/tests/inventory.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Sorting by price low to high orders products ascending</span>
+            <span class="test-file">ui/tests/inventory.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Standard user can log in</span>
+            <span class="test-file">ui/tests/login.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Adding and removing a product updates the cart badge</span>
+            <span class="test-file">ui/tests/inventory.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Sorting by name Z to A orders products descending</span>
+            <span class="test-file">ui/tests/inventory.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Logout returns the user to the login page</span>
+            <span class="test-file">ui/tests/logout.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">LoginPage</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Login screen for saucedemo.com</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">6/6 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Login page meets load-time and Web Vitals budgets</span>
+            <span class="test-file">performance/tests/page-load.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Standard user can log in</span>
+            <span class="test-file">ui/tests/login.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Locked out user sees a lockout error</span>
+            <span class="test-file">ui/tests/login.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Missing password shows a required-field error</span>
+            <span class="test-file">ui/tests/login.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Invalid credentials show an error and do not log in</span>
+            <span class="test-file">ui/tests/login.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Logout returns the user to the login page</span>
+            <span class="test-file">ui/tests/logout.spec.ts</span>
+          </span>
+        </li></ul>
+      </details></div>
+      </section>
+
+      <section class="domain-section">
+        <h2 class="domain-heading">Performance</h2>
+        <div class="component-grid">
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">PerformanceService</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">Navigation timing &amp; Core Web Vitals reader</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">2/2 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Login page meets load-time and Web Vitals budgets</span>
+            <span class="test-file">performance/tests/page-load.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Inventory page meets load-time and Web Vitals budgets</span>
+            <span class="test-file">performance/tests/page-load.spec.ts</span>
+          </span>
+        </li></ul>
+      </details></div>
+      </section>
+
+      <section class="domain-section">
+        <h2 class="domain-heading">Database</h2>
+        <div class="component-grid">
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">UserRepository</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">SQLite users table queries</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">1/1 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">create -&gt; get -&gt; update -&gt; delete: chained user record</span>
+            <span class="test-file">database/tests/db-user.spec.ts</span>
+          </span>
+        </li></ul>
+      </details></div>
+      </section>
+
+      <section class="domain-section">
+        <h2 class="domain-heading">API clients</h2>
+        <div class="component-grid">
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">ObjectApiClient</span>
+            <span class="component-chip component-chip--good">✓ All passing</span>
+          </div>
+          <p class="component-desc">REST client for api.restful-api.dev objects</p>
+          <div class="meter"><div class="meter-fill meter-fill--good" style="width:100%"></div></div>
+          <span class="component-tally">1/1 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">create -&gt; get -&gt; update -&gt; delete: chained object lifecycle</span>
+            <span class="test-file">api/tests/api-object.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">UserApiClient</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">REST client for reqres.in users &amp; auth</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:9.090909090909092%"></div></div>
+          <span class="component-tally">1/11 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">GET /api/users lists users on the requested page</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">POST /api/users creates a user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">GET /api/users/:id returns the matching user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--good">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">GET /api/users/:id returns 404 for a nonexistent user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">POST /api/register succeeds with a valid email and password</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">PUT /api/users/:id updates a user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">DELETE /api/users/:id removes a user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">PATCH /api/users/:id partially updates a user</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">POST /api/register fails without a password</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">POST /api/login succeeds with a valid email and password</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">POST /api/login fails without a password</span>
+            <span class="test-file">api/tests/reqres-user.spec.ts</span>
+          </span>
+        </li></ul>
+      </details></div>
+      </section>
+
+      <section class="domain-section">
+        <h2 class="domain-heading">AWS</h2>
+        <div class="component-grid">
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">LambdaService</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">AWS Lambda function operations</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/3 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify the configured Lambda function exists</span>
+            <span class="test-file">aws/tests/lambda.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List functions returns at least one function</span>
+            <span class="test-file">aws/tests/lambda.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Invoking the function returns a successful status code</span>
+            <span class="test-file">aws/tests/lambda.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">Route53Service</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">AWS Route 53 DNS operations</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/2 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify the configured hosted zone exists</span>
+            <span class="test-file">aws/tests/route53.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List record sets returns at least one record</span>
+            <span class="test-file">aws/tests/route53.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">S3Service</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">AWS S3 file operations</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/2 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List files under a given prefix</span>
+            <span class="test-file">aws/tests/s3.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify an uploaded file exists in the S3 bucket</span>
+            <span class="test-file">aws/tests/s3.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">VpcService</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">AWS VPC &amp; subnet reads</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/3 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify the configured VPC exists</span>
+            <span class="test-file">aws/tests/vpc.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">VPC has a CIDR block assigned</span>
+            <span class="test-file">aws/tests/vpc.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List subnets returns at least one subnet</span>
+            <span class="test-file">aws/tests/vpc.spec.ts</span>
+          </span>
+        </li></ul>
+      </details></div>
+      </section>
+
+      <section class="domain-section">
+        <h2 class="domain-heading">Azure</h2>
+        <div class="component-grid">
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">BlobService</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">Azure Blob Storage file operations</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/2 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify an uploaded file exists in the Blob container</span>
+            <span class="test-file">azure/tests/blob.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List files under a given prefix</span>
+            <span class="test-file">azure/tests/blob.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">DnsService</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">Azure DNS zone &amp; record operations</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/2 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify the configured DNS zone exists</span>
+            <span class="test-file">azure/tests/dns.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List record sets returns at least one record</span>
+            <span class="test-file">azure/tests/dns.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">FunctionsService</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">Azure Functions app operations</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/3 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify the configured function app exists</span>
+            <span class="test-file">azure/tests/functions.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Invoking the function returns a successful status code</span>
+            <span class="test-file">azure/tests/functions.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List functions returns at least one function</span>
+            <span class="test-file">azure/tests/functions.spec.ts</span>
+          </span>
+        </li></ul>
+      </details>
+
+      <details class="component-card">
+        <summary>
+          <div class="component-card-top">
+            <span class="component-name">VNetService</span>
+            <span class="component-chip component-chip--warning">⚠ Needs setup</span>
+          </div>
+          <p class="component-desc">Azure VNet &amp; subnet reads</p>
+          <div class="meter"><div class="meter-fill meter-fill--warning" style="width:0%"></div></div>
+          <span class="component-tally">0/3 tests</span>
+        </summary>
+        <ul class="test-list">
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">Verify the configured VNet exists</span>
+            <span class="test-file">azure/tests/vnet.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">VNet has an address space assigned</span>
+            <span class="test-file">azure/tests/vnet.spec.ts</span>
+          </span>
+        </li>
+        <li class="test-row test-row--warning">
+          <span class="test-dot" aria-hidden="true"></span>
+          <span class="test-body">
+            <span class="test-title">List subnets returns at least one subnet</span>
+            <span class="test-file">azure/tests/vnet.spec.ts</span>
+          </span>
+        </li></ul>
+      </details></div>
+      </section>
+
+    <footer>
+      Generated automatically from the Playwright test run — one card per framework
+      component (page object / service / API client), derived from the fixtures each
+      test actually declares. For the plain-language view, see
+      <code>friendly-report/index.html</code>; for stack traces, run <code>npm run report</code>.
+    </footer>
+  </div>
+</body>
+</html>
