@@ -1,0 +1,16 @@
+# Runs mobile/tests on a real Android device's Chrome browser on BrowserStack Automate,
+# instead of Playwright's local Pixel 7 viewport emulation — pair with the "Mobile
+# Chrome" Playwright project and `npm run test:browserstack:mobile-android`. Device name
+# and osVersion must match BrowserStack's currently supported list:
+# https://www.browserstack.com/list-of-browsers-and-platforms/playwright
+envFile: ./browserstack/.env
+userName: ${BROWSERSTACK_USERNAME}
+accessKey: ${BROWSERSTACK_ACCESS_KEY}
+framework: playwright
+platforms:
+  - deviceName: Samsung Galaxy S23
+    osVersion: "13.0"
+    browserName: chrome
+buildName: playwright-fixture-framework-mobile-android
+projectName: Playwright Fixture Framework
+parallelsPerPlatform: 1

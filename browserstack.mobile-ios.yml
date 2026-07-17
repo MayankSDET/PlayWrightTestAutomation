@@ -1,0 +1,16 @@
+# Runs mobile/tests on a real iPhone's Safari browser on BrowserStack Automate, instead
+# of Playwright's local iPhone 13 viewport emulation — pair with the "Mobile Safari"
+# Playwright project and `npm run test:browserstack:mobile-ios`. Device name and
+# osVersion must match BrowserStack's currently supported list:
+# https://www.browserstack.com/list-of-browsers-and-platforms/playwright
+envFile: ./browserstack/.env
+userName: ${BROWSERSTACK_USERNAME}
+accessKey: ${BROWSERSTACK_ACCESS_KEY}
+framework: playwright
+platforms:
+  - deviceName: iPhone 15
+    osVersion: "17"
+    browserName: safari
+buildName: playwright-fixture-framework-mobile-ios
+projectName: Playwright Fixture Framework
+parallelsPerPlatform: 1

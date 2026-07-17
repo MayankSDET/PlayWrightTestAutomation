@@ -9,7 +9,11 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "test:browserstack:ui": "browserstack-node-sdk playwright test ui/tests --project=chromium",
+    "test:browserstack:mobile-android": "cross-env BROWSERSTACK_CONFIG_FILE=browserstack.mobile-android.yml browserstack-node-sdk playwright test mobile/tests --project=\"Mobile Chrome\"",
+    "test:browserstack:mobile-ios": "cross-env BROWSERSTACK_CONFIG_FILE=browserstack.mobile-ios.yml browserstack-node-sdk playwright test mobile/tests --project=\"Mobile Safari\"",
+    "test:browserstack": "npm run test:browserstack:ui && npm run test:browserstack:mobile-android && npm run test:browserstack:mobile-ios"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +23,8 @@
     "@playwright/test": "^1.60.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.1.1",
+    "browserstack-node-sdk": "^1.63.6",
+    "cross-env": "^10.1.0",
     "typescript": "^5.7.0"
   },
   "dependencies": {

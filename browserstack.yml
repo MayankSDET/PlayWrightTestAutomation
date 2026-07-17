@@ -1,0 +1,25 @@
+# Runs ui/tests on BrowserStack Automate's desktop browser cloud instead of local
+# Chromium — pair with the "chromium" Playwright project (see playwright.config.ts) and
+# `npm run test:browserstack:ui`. Credentials come from browserstack/.env via envFile,
+# never hardcoded here. Platform names must match BrowserStack's currently supported
+# list: https://www.browserstack.com/list-of-browsers-and-platforms/playwright
+envFile: ./browserstack/.env
+userName: ${BROWSERSTACK_USERNAME}
+accessKey: ${BROWSERSTACK_ACCESS_KEY}
+framework: playwright
+platforms:
+  - os: Windows
+    osVersion: "11"
+    browserName: chrome
+    browserVersion: latest
+  - os: Windows
+    osVersion: "11"
+    browserName: playwright-firefox
+    browserVersion: latest
+  - os: OS X
+    osVersion: Sonoma
+    browserName: playwright-webkit
+    browserVersion: latest
+buildName: playwright-fixture-framework-ui
+projectName: Playwright Fixture Framework
+parallelsPerPlatform: 1

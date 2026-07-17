@@ -25,6 +25,11 @@ tsconfig.json             TypeScript compiler options
 package.json               Scripts + dependencies
 .gitignore                  What never gets committed (incl. every domain's .env)
 
+browserstack.yml            BrowserStack Automate platforms for ui/tests (desktop browsers)
+browserstack.mobile-android.yml   BrowserStack Automate platform for mobile/tests (real Android device)
+browserstack.mobile-ios.yml         BrowserStack Automate platform for mobile/tests (real iOS device)
+browserstack/.env / .env.example      BROWSERSTACK_USERNAME/BROWSERSTACK_ACCESS_KEY (gitignored real values / committed template)
+
 ui/                         UI automation for saucedemo.com (Page Object Model)
   pages/
     BasePage.ts                  Shared page behavior every page object extends
@@ -141,6 +146,7 @@ cp azure/.env.example azure/.env       # fill in real Azure values
 cp api/.env.example api/.env           # fill in a real REQRES_API_KEY (see below)
 cp database/.env.example database/.env # optional — has a working default
 cp native/.env.example native/.env     # point at a real Appium server + device (see below)
+cp browserstack/.env.example browserstack/.env  # fill in real BrowserStack credentials (see below)
 npx playwright install chromium webkit  # webkit powers the Mobile Safari device-emulation project
 ```
 
@@ -165,7 +171,9 @@ with the relevant driver installed (`appium driver install uiautomator2` for And
 simulator or a connected real device — `APPIUM_SERVER_URL`/`APPIUM_PLATFORM_NAME`/
 `APPIUM_AUTOMATION_NAME`/`APPIUM_DEVICE_NAME`/`APPIUM_BROWSER_NAME` in `native/.env` point
 at it. None of that is provisioned by this framework, the same way a real AWS/Azure
-account isn't.
+account isn't. `test:browserstack*` needs a real BrowserStack Automate account
+(`BROWSERSTACK_USERNAME`/`BROWSERSTACK_ACCESS_KEY` in `browserstack/.env`) — see
+[9. Cross-browser & real-device cloud testing](#9-cross-browser--real-device-cloud-testing-browserstack).
 
 Run everything:
 
@@ -188,6 +196,16 @@ npx playwright test azure/tests        # Azure: Blob Storage, VNet, DNS, Functio
 npx playwright test database/tests     # SQL (SQLite)
 ```
 
+Run `ui/`/`mobile/` on BrowserStack's cloud instead of locally (see
+[9. Cross-browser & real-device cloud testing](#9-cross-browser--real-device-cloud-testing-browserstack)):
+
+```bash
+npm run test:browserstack:ui             # ui/tests on real desktop browsers (Chrome/Firefox/Safari)
+npm run test:browserstack:mobile-android  # mobile/tests on a real Android device's Chrome
+npm run test:browserstack:mobile-ios      # mobile/tests on a real iPhone's Safari
+npm run test:browserstack                  # all three, one after another
+```
+
 `playwright.config.ts` sets `testDir: '.'` with `testMatch: '**/tests/**/*.spec.ts'`, so
 any `tests/` folder under any domain is picked up automatically — adding a new domain
 folder with its own `tests/` subfolder needs no config change, unless (like `mobile/`) it
@@ -202,10 +220,11 @@ project's own `testMatch`/`testIgnore` needs updating too — see `mobile/`'s se
 |---|---|---|
 | `playwright.config.ts` | `testDir`/`testMatch`, `baseURL`, `retries`/`workers` (CI vs local), timeouts, the `html` reporter, the `chromium` project, plus the `Mobile Chrome`/`Mobile Safari` device-emulation projects (scoped to `mobile/tests/**` via `testMatch`, and excluded from `chromium` via `testIgnore`) | Adding a browser/project/device, changing timeouts, pointing `baseURL` at a real app |
 | `tsconfig.json` | Compiler target/strictness | Rarely — only if you need a new TS feature or path alias |
-| `package.json` | `npm test` / `test:headed` / `report` scripts, all dependencies | Adding a new npm script, or a new dependency when you add an integration |
+| `package.json` | `npm test` / `test:headed` / `report` / `test:browserstack*` scripts, all dependencies | Adding a new npm script, or a new dependency when you add an integration |
 | `<domain>/.env.example` | That domain's env vars, with placeholder values and comments (e.g. `aws/.env.example`) | **Every time you add a new env var**, add it to the relevant domain's `.env.example` |
 | `<domain>/.env` | That domain's real values, gitignored | Never commit this. Copy the matching `.env.example` to make it |
-| `.gitignore` | `node_modules/`, `.env` (matches at any depth, so every domain's `.env` is covered), Playwright's own output dirs, `.claude/settings.local.json` | Add new generated-output directories here as they show up |
+| `browserstack.yml` / `browserstack.mobile-android.yml` / `browserstack.mobile-ios.yml` | BrowserStack Automate platform capabilities for `ui/tests`/`mobile/tests`, read by `browserstack-node-sdk` | Changing which real browsers/devices `test:browserstack*` runs against — see [9. Cross-browser & real-device cloud testing](#9-cross-browser--real-device-cloud-testing-browserstack) |
+| `.gitignore` | `node_modules/`, `.env` (matches at any depth, so every domain's `.env` is covered), Playwright's own output dirs, `.claude/settings.local.json`, `log/` (written by `browserstack-node-sdk`) | Add new generated-output directories here as they show up |
 | `config/loadEnv.ts` | Loads a given `.env` path exactly once (tracked by path, not a single flag) — called by every domain's `config/*.ts` with that domain's own `.env` | See [The env-loading pattern](#the-env-loading-pattern-configloadenvts) below |
 
 ---
@@ -855,6 +874,100 @@ real infrastructure to run, the same way AWS/Azure always need a real account.
    (`APPIUM_PLATFORM_NAME`/`APPIUM_AUTOMATION_NAME`/`APPIUM_DEVICE_NAME`), not a
    `playwright.config.ts` change — unlike `mobile/`'s device profiles, Appium capabilities
    are runtime config, not a Playwright project.
+
+---
+
+## 9. Cross-browser & real-device cloud testing (BrowserStack)
+
+**Files:** `browserstack.yml`, `browserstack.mobile-android.yml`,
+`browserstack.mobile-ios.yml`, `browserstack/.env`
+
+This isn't a new domain with its own tests, page objects, or fixtures — it's a third way
+to *run* the specs `ui/` and `mobile/` already have, on BrowserStack Automate's cloud
+instead of on this machine: real Windows/macOS desktop browsers for `ui/tests`, and a real
+Android phone / real iPhone (not Playwright's viewport emulation) for `mobile/tests`. No
+`playwright.config.ts`, fixture, or spec changes were needed for this — BrowserStack's
+`browserstack-node-sdk` wraps the existing `npx playwright test` command as-is.
+
+### What's here
+
+**`browserstack/.env`** (loaded via each yml's `envFile:` key, same gitignore rule as every
+other domain's `.env`) holds the only two things this needs:
+
+```env
+# browserstack/.env
+BROWSERSTACK_USERNAME=your-browserstack-username
+BROWSERSTACK_ACCESS_KEY=your-browserstack-access-key
+```
+
+**Three separate yml files**, not one, so each Playwright project maps onto exactly one
+BrowserStack platform with no ambiguity about which spec runs where:
+
+| File | Paired Playwright project | Paired npm script | Runs against |
+|---|---|---|---|
+| `browserstack.yml` | `chromium` | `test:browserstack:ui` | Real desktop Chrome/Firefox (Windows) + WebKit (macOS) |
+| `browserstack.mobile-android.yml` | `Mobile Chrome` | `test:browserstack:mobile-android` | A real Android device's Chrome browser |
+| `browserstack.mobile-ios.yml` | `Mobile Safari` | `test:browserstack:mobile-ios` | A real iPhone's Safari browser |
+
+Each yml needs **both** `envFile` (to load the credentials) **and** explicit
+`userName`/`accessKey` keys that interpolate those env vars — `envFile` alone does not
+populate them:
+
+```yaml
+# browserstack.yml
+envFile: ./browserstack/.env
+userName: ${BROWSERSTACK_USERNAME}
+accessKey: ${BROWSERSTACK_ACCESS_KEY}
+framework: playwright
+platforms:
+  - os: Windows
+    osVersion: "11"
+    browserName: chrome
+    browserVersion: latest
+  # ...
+buildName: playwright-fixture-framework-ui
+projectName: Playwright Fixture Framework
+```
+
+The two mobile yml files each list exactly **one** real device (`deviceName` +
+`osVersion` + `browserName: chrome`/`safari`), matched to the npm script's `--project`
+flag — that pairing is what keeps `mobile/tests`' viewport-size assertions
+(`mobile-viewport.spec.ts` asserts `width <= 430`, which only makes sense for one real
+phone at a time, not a fan-out across multiple devices in one run).
+
+`package.json`'s scripts route each spec folder through the matching config and project:
+
+```json
+"test:browserstack:ui": "browserstack-node-sdk playwright test ui/tests --project=chromium",
+"test:browserstack:mobile-android": "cross-env BROWSERSTACK_CONFIG_FILE=browserstack.mobile-android.yml browserstack-node-sdk playwright test mobile/tests --project=\"Mobile Chrome\"",
+"test:browserstack:mobile-ios": "cross-env BROWSERSTACK_CONFIG_FILE=browserstack.mobile-ios.yml browserstack-node-sdk playwright test mobile/tests --project=\"Mobile Safari\""
+```
+
+`BROWSERSTACK_CONFIG_FILE` is how the SDK picks a non-default yml file; `cross-env` just
+makes setting that env var work the same way on macOS/Linux and Windows. `--project` pins
+the run to one local Playwright project so the SDK's remote platform substitutes for that
+project's browser/device without triggering the other project(s) that also match the same
+spec folder (`mobile/tests` matches **both** `Mobile Chrome` and `Mobile Safari` locally).
+
+Once real credentials are missing/invalid, `browserstack-node-sdk` fails fast with a clear
+`ERROR_INVALID_CREDENTIALS` from BrowserStack's own API — confirmed by running each script
+with placeholder values in `browserstack/.env` — rather than hanging or crashing. Device
+names/OS versions must match BrowserStack's currently supported list (it changes over
+time): [browserstack.com/list-of-browsers-and-platforms/playwright](https://www.browserstack.com/list-of-browsers-and-platforms/playwright);
+if `Samsung Galaxy S23`/`iPhone 15` age out, swap in whatever's current.
+
+### Adding a platform or device
+
+1. To add another desktop browser/OS to the `ui/` run, add an entry to
+   `browserstack.yml`'s `platforms` list — no code change needed.
+2. To test a different real device, edit the `deviceName`/`osVersion` in
+   `browserstack.mobile-android.yml`/`browserstack.mobile-ios.yml` — pick values from
+   BrowserStack's supported list linked above.
+3. To add a third real device (e.g. a tablet), create a new
+   `browserstack.mobile-<name>.yml`, add a matching `test:browserstack:mobile-<name>`
+   script following the same `BROWSERSTACK_CONFIG_FILE`/`--project` pattern, and make sure
+   the `--project` you pin it to actually has `testMatch: 'mobile/tests/**/*.spec.ts'` in
+   `playwright.config.ts` (add a new device-emulation project there first if it doesn't).
 
 ---
 
