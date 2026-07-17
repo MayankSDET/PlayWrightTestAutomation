@@ -41,6 +41,25 @@ ui/                         UI automation for saucedemo.com (Page Object Model)
     Products.ts                      Product names used across specs
   (no .env — saucedemo's baseURL is hardcoded in playwright.config.ts)
 
+mobile/                     Mobile web testing (Playwright device emulation) for saucedemo.com
+  services/
+    MobileService.ts              Viewport size, touch-input, and tap-target size checks
+  tests/                        mobile-viewport/mobile-tap-targets/mobile-checkout-journey specs
+  utils/
+    TapTargets.ts                   MIN_TAP_TARGET_PX — the WCAG minimum tap target size
+  (no .env — reuses ui/'s page objects and saucedemo's hardcoded baseURL; runs under the
+  Mobile Chrome/Mobile Safari projects in playwright.config.ts)
+
+native/                     Real-device mobile browser testing (Appium + WebdriverIO) for saucedemo.com
+  config/appiumConfig.ts        Appium server URL + device/platform capabilities
+  screens/
+    BaseScreen.ts                 Shared screen behavior every screen extends (wraps a WebdriverIO Browser)
+    LoginScreen.ts                  Login screen
+    InventoryScreen.ts               Products screen (title, product count, cart badge)
+  tests/                        native-login.spec.ts
+  utils/                        Placeholder — reuses ui/utils/Users.ts, no data of its own yet
+  .env / .env.example              APPIUM_* vars (gitignored real values / committed template)
+
 api/                        REST API client(s)
   clients/
     BaseApiClient.ts               Shared API client behavior
@@ -121,12 +140,14 @@ cp aws/.env.example aws/.env           # fill in real AWS values
 cp azure/.env.example azure/.env       # fill in real Azure values
 cp api/.env.example api/.env           # fill in a real REQRES_API_KEY (see below)
 cp database/.env.example database/.env # optional — has a working default
-npx playwright install chromium
+cp native/.env.example native/.env     # point at a real Appium server + device (see below)
+npx playwright install chromium webkit  # webkit powers the Mobile Safari device-emulation project
 ```
 
 `ui/` has no `.env` — saucedemo.com's URL is hardcoded as `baseURL` in
 `playwright.config.ts`, since it's a fixed public demo site, not a per-environment
-config. `database/` ships a default that works with zero setup (an in-memory SQLite DB).
+config. `mobile/` is the same: it reuses `ui/`'s page objects and `baseURL`, just under
+mobile device emulation, so it needs no `.env` either. `database/` ships a default that works with zero setup (an in-memory SQLite DB).
 `api/` is split: `api-object.spec.ts` (against `api.restful-api.dev`) needs no
 credentials, but `reqres-user.spec.ts` needs a real `REQRES_API_KEY` — get a free one at
 [app.reqres.in/api-keys](https://app.reqres.in/api-keys). `aws/` and `azure/` also need
@@ -137,7 +158,14 @@ bucket, Lambda function, VPC, and Route 53 hosted zone (`AWS_S3_BUCKET_NAME`,
 rights on the resource group and an existing VNet, DNS zone, and function app
 (`AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_SUBSCRIPTION_ID`/
 `AZURE_RESOURCE_GROUP`, `AZURE_VNET_NAME`, `AZURE_DNS_ZONE_NAME`,
-`AZURE_FUNCTION_APP_NAME`/`AZURE_FUNCTION_URL`/`AZURE_FUNCTION_KEY` in `azure/.env`).
+`AZURE_FUNCTION_APP_NAME`/`AZURE_FUNCTION_URL`/`AZURE_FUNCTION_KEY` in `azure/.env`). `native/`
+needs the most setup of all: an Appium server (`npm install -g appium` or `npx appium`)
+with the relevant driver installed (`appium driver install uiautomator2` for Android,
+`appium driver install xcuitest` for iOS), and a booted Android emulator/iOS
+simulator or a connected real device — `APPIUM_SERVER_URL`/`APPIUM_PLATFORM_NAME`/
+`APPIUM_AUTOMATION_NAME`/`APPIUM_DEVICE_NAME`/`APPIUM_BROWSER_NAME` in `native/.env` point
+at it. None of that is provisioned by this framework, the same way a real AWS/Azure
+account isn't.
 
 Run everything:
 
@@ -151,6 +179,8 @@ Run one domain at a time:
 
 ```bash
 npx playwright test ui/tests           # UI (saucedemo.com)
+npx playwright test mobile/tests       # Mobile web (device emulation, saucedemo.com)
+npx playwright test native/tests       # Real device browser via Appium (saucedemo.com)
 npx playwright test performance/tests  # Page-load performance & Web Vitals
 npx playwright test api/tests          # REST API
 npx playwright test aws/tests          # AWS S3
@@ -160,7 +190,9 @@ npx playwright test database/tests     # SQL (SQLite)
 
 `playwright.config.ts` sets `testDir: '.'` with `testMatch: '**/tests/**/*.spec.ts'`, so
 any `tests/` folder under any domain is picked up automatically — adding a new domain
-folder with its own `tests/` subfolder needs no config change.
+folder with its own `tests/` subfolder needs no config change, unless (like `mobile/`) it
+needs to run under a different Playwright *project* (browser/device), in which case that
+project's own `testMatch`/`testIgnore` needs updating too — see `mobile/`'s section below.
 
 ---
 
@@ -168,7 +200,7 @@ folder with its own `tests/` subfolder needs no config change.
 
 | File | What's in it | When you'd touch it |
 |---|---|---|
-| `playwright.config.ts` | `testDir`/`testMatch`, `baseURL`, `retries`/`workers` (CI vs local), timeouts, the `html` reporter, the `chromium` project | Adding a browser/project, changing timeouts, pointing `baseURL` at a real app |
+| `playwright.config.ts` | `testDir`/`testMatch`, `baseURL`, `retries`/`workers` (CI vs local), timeouts, the `html` reporter, the `chromium` project, plus the `Mobile Chrome`/`Mobile Safari` device-emulation projects (scoped to `mobile/tests/**` via `testMatch`, and excluded from `chromium` via `testIgnore`) | Adding a browser/project/device, changing timeouts, pointing `baseURL` at a real app |
 | `tsconfig.json` | Compiler target/strictness | Rarely — only if you need a new TS feature or path alias |
 | `package.json` | `npm test` / `test:headed` / `report` scripts, all dependencies | Adding a new npm script, or a new dependency when you add an integration |
 | `<domain>/.env.example` | That domain's env vars, with placeholder values and comments (e.g. `aws/.env.example`) | **Every time you add a new env var**, add it to the relevant domain's `.env.example` |
@@ -657,6 +689,175 @@ method signatures. Every repository and every fixture stays exactly as it is.
 
 ---
 
+## 7. Mobile web testing (Playwright device emulation)
+
+**Folder:** `mobile/` · **Tests:** `mobile/tests/mobile-viewport.spec.ts`,
+`mobile/tests/mobile-tap-targets.spec.ts`, `mobile/tests/mobile-checkout-journey.spec.ts`
+
+This domain tests the same saucedemo.com app as `ui/`, but through Playwright's built-in
+mobile device emulation (viewport size, touch input, user agent) instead of a desktop
+browser — it answers "does the shopping journey actually work on a phone?", not "is there
+a separate native app?" (that would need Appium and a different toolchain entirely, not
+Playwright).
+
+### What's here
+
+Unlike every other domain, `mobile/` has **no `pages/` folder** — it deliberately reuses
+`ui/`'s page objects (`LoginPage`, `InventoryPage`, `CartPage`, the checkout pages) via the
+fixtures already registered in `fixtures/base.fixture.ts`, the same way `performance/`
+reuses them instead of duplicating locators. Duplicating page objects per device would mean
+two places to update every time saucedemo's markup changes; emulation only changes the
+*viewport/input*, not the DOM, so the same page objects work unmodified.
+
+What `mobile/` *does* add is the emulation itself and a service for asserting on
+mobile-specific properties a desktop-only test never checks:
+
+```ts
+// mobile/services/MobileService.ts
+export class MobileService {
+  async getViewportSize(page: Page): Promise<ViewportSize | null> { ... }
+  async isTouchEnabled(page: Page): Promise<boolean> { ... }
+  async findUndersizedTapTargets(page: Page, minSizePx = MIN_TAP_TARGET_PX): Promise<TapTarget[]> { ... }
+}
+```
+
+`findUndersizedTapTargets()` reads every visible `button`/`a[href]`/`input[type=submit
+or button]`/`[role=button]` on the page and flags any whose rendered bounding box is
+smaller than `MIN_TAP_TARGET_PX` (44px — WCAG 2.5.5's minimum touch target size, from
+`mobile/utils/TapTargets.ts`) in either dimension — a real accessibility check a desktop
+viewport can't surface, since desktop layouts render the same elements larger.
+
+```ts
+test('login screen renders at a phone-sized viewport', async ({ page, loginPage, mobileService }) => {
+  await loginPage.goto();
+  const viewport = await mobileService.getViewportSize(page);
+  expect(viewport!.width).toBeLessThanOrEqual(430);
+});
+```
+
+**The device emulation itself lives in `playwright.config.ts`**, not in `mobile/` — two
+projects, `Mobile Chrome` (`devices['Pixel 7']`) and `Mobile Safari` (`devices['iPhone
+13']`), each scoped to `testMatch: 'mobile/tests/**/*.spec.ts'` so they only ever run this
+domain's specs; the `chromium` project gets a matching `testIgnore` so `mobile/tests/**`
+never runs twice, once on desktop and once emulated. `Mobile Safari` needs the `webkit`
+browser installed (`npx playwright install webkit`, alongside `chromium`) since
+`devices['iPhone 13']` defaults to that engine.
+
+`mobile-checkout-journey.spec.ts` mirrors `ui/tests/checkout.spec.ts`'s full login → add
+to cart → checkout → confirmation flow verbatim, just running under mobile emulation — a
+responsive-layout regression guard: if a future CSS change breaks the flow only at phone
+widths, this is the spec that catches it while the desktop version keeps passing.
+
+`findUndersizedTapTargets()` currently flags real, pre-existing issues on saucedemo's
+inventory page (the "Add to cart" buttons are 34px tall, product-name links 20px tall,
+both under the 44px minimum) — `mobile-tap-targets.spec.ts`'s inventory check is expected
+to fail until that's fixed on the app side; this is the framework doing its job, not a
+setup gap like AWS/Azure's credential-gated failures.
+
+### Adding a mobile-specific check
+
+1. Decide whether it needs a **new page** (add one to `ui/pages/` and register its
+   fixture — `mobile/` never gets its own `pages/` folder) or just a **new assertion** on
+   an existing page (add a method to `MobileService`, taking `page` the same way
+   `getViewportSize`/`isTouchEnabled`/`findUndersizedTapTargets` do).
+2. Put its spec in `mobile/tests/`, importing `test`/`expect` from
+   `../../fixtures/base.fixture` like every other domain.
+3. If it needs its own device profile (e.g. a tablet), add a project to
+   `playwright.config.ts` with the same `testMatch: 'mobile/tests/**/*.spec.ts'` scoping,
+   and install whatever browser engine that device defaults to.
+
+---
+
+## 8. Real device / native browser testing (Appium)
+
+**Folder:** `native/` · **Test:** `native/tests/native-login.spec.ts`
+
+This domain answers a question `mobile/` genuinely can't: does the app work in an actual
+mobile browser, on an actual device (a real phone, a booted Android emulator, or an iOS
+simulator) — real OS chrome, real rendering engine, no viewport spoofing. `mobile/`'s
+Playwright device emulation is fast and needs no extra infrastructure, which makes it the
+right default for everyday CI; `native/` is the slower, higher-fidelity check for when
+emulation isn't enough.
+
+### Why this can't be `BasePage`/Playwright-based
+
+Every other domain's page objects wrap a Playwright `Page`, which only exists inside a
+browser *Playwright itself* launches (Chromium/WebKit/Firefox as a local process).
+Playwright has no way to drive a real or emulated mobile device — there's no ADB
+connection, no simulator boot, no OS. Automating an actual device needs a different
+protocol entirely: **WebDriver**, spoken to an **Appium server**, which in turn drives the
+device via `UiAutomator2` (Android) or `XCUITest` (iOS). So `native/` gets its own base
+class, `BaseScreen`, wrapping a WebdriverIO `Browser` session instead of a Playwright
+`Page` — the two aren't interchangeable, which is why this isn't just another method on
+`ui/pages/BasePage.ts`.
+
+```ts
+// native/screens/BaseScreen.ts
+export abstract class BaseScreen {
+  protected readonly driver: Browser;   // a WebdriverIO session, not a Playwright Page
+  async open(url: string) { await this.driver.url(url); }
+  async getTitle(): Promise<string> { return this.driver.getTitle(); }
+}
+```
+
+`LoginScreen` and `InventoryScreen` (`native/screens/`) mirror `ui/pages/LoginPage` and
+`InventoryPage` one-for-one — same three rules (locators are `private readonly` fields,
+one `public async` method per user action, `open()`/navigation stays inside the class) —
+just using WebdriverIO's `$()`/`$$()` element finders instead of Playwright's `locator()`.
+
+### What's here
+
+`native/config/appiumConfig.ts` follows the same lazy-validation pattern as every other
+domain's config: `getAppiumConfig()` reads `native/.env` and only throws when a test
+actually needs it.
+
+```env
+# native/.env
+APPIUM_SERVER_URL=http://127.0.0.1:4723
+APPIUM_PLATFORM_NAME=Android
+APPIUM_AUTOMATION_NAME=UiAutomator2
+APPIUM_DEVICE_NAME=emulator-5554
+APPIUM_PLATFORM_VERSION=14
+APPIUM_BROWSER_NAME=Chrome
+```
+
+`fixtures/base.fixture.ts`'s `nativeDriverSession` (worker-scoped) parses
+`APPIUM_SERVER_URL` and opens one WebdriverIO `remote()` session per worker with those
+capabilities, disposing it via `driver.deleteSession()` — worker-scoped because an Appium
+session is expensive to start (it can involve booting an app on a device), unlike
+Playwright's cheap per-test `page`. `loginScreen`/`inventoryScreen` wrap that shared
+session; specs call `loginScreen.open()` explicitly at the start of each test (the same
+way `ui/tests/login.spec.ts` calls `loginPage.goto()` itself) to reset state, since the
+underlying session — and whatever screen it's currently on — persists across tests in the
+same worker.
+
+```ts
+test('Standard user can log in on a real device browser', async ({ authenticatedInventoryScreen }) => {
+  expect(await authenticatedInventoryScreen.getTitleText()).toBe('Products');
+});
+```
+
+Without a reachable Appium server + device, `nativeDriverSession` throws on session
+creation ("Unable to connect... make sure browser driver is running"), which
+`testClassification.ts`'s `blockedReason()` classifies as **Needs setup** (a `native/`
+file-path branch, mirroring `aws/`/`azure/`) rather than a bug — this domain always needs
+real infrastructure to run, the same way AWS/Azure always need a real account.
+
+### Adding a native check
+
+1. Create `native/screens/YourScreen.ts`, `extends BaseScreen` — locators as `private
+   readonly` fields built from `this.driver.$(...)`/`$$(...)`, one method per user action.
+2. Register it as a test-scoped fixture in `fixtures/base.fixture.ts` (depending on
+   `nativeDriverSession`) — copy the `loginScreen`/`inventoryScreen` entries.
+3. Put its spec in `native/tests/`, importing `test`/`expect` from
+   `../../fixtures/base.fixture`.
+4. If it needs a different device/platform, that's a `native/.env` change
+   (`APPIUM_PLATFORM_NAME`/`APPIUM_AUTOMATION_NAME`/`APPIUM_DEVICE_NAME`), not a
+   `playwright.config.ts` change — unlike `mobile/`'s device profiles, Appium capabilities
+   are runtime config, not a Playwright project.
+
+---
+
 ## Fixtures
 
 **File:** `fixtures/base.fixture.ts` — the one place everything above gets wired
@@ -692,6 +893,10 @@ test('...', async ({ loginPage, s3Service, objectApiClient, userRepository }) =>
 | `dbService` | **worker** | `new DbService()` + `.migrate()` | Shared, already-migrated SQLite connection |
 | `userRepository` | test | `dbService` | Thin wrapper exposing the repository |
 | `performanceService` | **worker** | `new PerformanceService()` | Shared helper for reading navigation timing / Web Vitals off a `page` |
+| `mobileService` | **worker** | `new MobileService()` | Shared helper for viewport size, touch-input, and tap-target size checks off a `page` |
+| `nativeDriverSession` | **worker** | `webdriverio`'s `remote(...)` | Shared Appium/WebDriver session against a real/emulated device |
+| `loginScreen` / `inventoryScreen` | test | `new LoginScreen(...)` / `new InventoryScreen(...)` | Screen objects bound to `nativeDriverSession` |
+| `authenticatedInventoryScreen` | test | `loginScreen` + `inventoryScreen` | `inventoryScreen`, already logged in as `users.standard` |
 
 **Why the scope matters:** `worker`-scoped fixtures are created once per parallel worker
 and reused across every test that worker runs — cheap and correct for stateless clients
@@ -728,8 +933,8 @@ or so cheap to construct that sharing it buys nothing.
 
 ## Tests
 
-**Folders:** `ui/tests/`, `performance/tests/`, `api/tests/`, `database/tests/`,
-`aws/tests/`, `azure/tests/` —
+**Folders:** `ui/tests/`, `mobile/tests/`, `native/tests/`, `performance/tests/`,
+`api/tests/`, `database/tests/`, `aws/tests/`, `azure/tests/` —
 one spec file per concern, named after what it tests (`login.spec.ts`, `s3.spec.ts`,
 `db-user.spec.ts`, not `test1.spec.ts`), living inside its own domain folder rather than
 a shared top-level `tests/` directory. Every spec:
@@ -779,18 +984,25 @@ domain's tests/config depend on them).
 | `ReqresCredentials.ts` | `registration`, `login` — reqres.in's documented valid/invalid test accounts | `reqres-user.spec.ts` |
 | `ReqresUserPayloads.ts` | `newUser`, `updatedUser` — create/update request bodies | `reqres-user.spec.ts` |
 
-**`aws/utils/`, `azure/utils/`, `database/utils/`, `performance/utils/`** each still hold
-a single placeholder file (`AwsTestData.ts`, `AzureTestData.ts`, `DatabaseTestData.ts`,
-`PerformanceTestData.ts` — just a comment and `export {}`, so the empty folder still
-exists in git) since those domains have no static test data yet. Replace the placeholder
-with real per-concern files the first time you add data to that domain, following the
-pattern `api/utils/` just switched to — and delete the placeholder once it's no longer
-the only thing in the folder.
+**`mobile/utils/`**:
+
+| File | Exports | Used by |
+|---|---|---|
+| `TapTargets.ts` | `MIN_TAP_TARGET_PX` — WCAG 2.5.5's minimum touch target size (44px) | `mobile-tap-targets.spec.ts`, `mobile/services/MobileService.ts` |
+
+**`aws/utils/`, `azure/utils/`, `database/utils/`, `performance/utils/`, `native/utils/`**
+each still hold a single placeholder file (`AwsTestData.ts`, `AzureTestData.ts`,
+`DatabaseTestData.ts`, `PerformanceTestData.ts`, `NativeTestData.ts` — just a comment and
+`export {}`, so the empty folder still exists in git) since those domains have no static
+test data of their own yet (`native/` reuses `ui/utils/Users.ts` for login credentials).
+Replace the placeholder with real per-concern files the first time you add data to that
+domain, following the pattern `api/utils/` just switched to — and delete the placeholder
+once it's no longer the only thing in the folder.
 
 ### Adding new test data
 
-1. Decide which domain the data belongs to (`ui/utils/`, `api/utils/`, `aws/utils/`,
-   `azure/utils/`, `database/utils/`, or `performance/utils/`).
+1. Decide which domain the data belongs to (`ui/utils/`, `mobile/utils/`, `native/utils/`,
+   `api/utils/`, `aws/utils/`, `azure/utils/`, `database/utils/`, or `performance/utils/`).
 2. Create one file per concern (e.g. `ui/utils/YourConcern.ts`), named for what it holds,
    not for the fact that it's "data" — `Users.ts`, not `UserTestData.ts`.
 3. Export a single `const` (object or array) per file, same shape as `users` /

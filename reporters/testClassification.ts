@@ -24,6 +24,9 @@ export function blockedReason(file: string, errorMessage?: string): string | nul
   if (file.startsWith('azure/')) {
     return 'Needs setup — a real Microsoft (Azure) storage account must be connected. Currently using a placeholder key.';
   }
+  if (file.startsWith('native/')) {
+    return 'Needs setup — an Appium server and a booted Android/iOS emulator (or connected real device) must be reachable.';
+  }
   if (file === 'api/tests/reqres-user.spec.ts') {
     return 'Needs setup — a real access key for the accounts service is required. Currently using a placeholder key.';
   }

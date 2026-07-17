@@ -1,4 +1,5 @@
 import { test as base, APIRequestContext } from '@playwright/test';
+import { remote, type Browser } from 'webdriverio';
 import { LoginPage } from '../ui/pages/LoginPage';
 import { InventoryPage } from '../ui/pages/InventoryPage';
 import { CartPage } from '../ui/pages/CartPage';
@@ -21,6 +22,10 @@ import { users } from '../ui/utils/Users';
 import { DbService } from '../database/services/DbService';
 import { UserRepository } from '../database/repositories/UserRepository';
 import { PerformanceService } from '../performance/services/PerformanceService';
+import { MobileService } from '../mobile/services/MobileService';
+import { getAppiumConfig } from '../native/config/appiumConfig';
+import { LoginScreen } from '../native/screens/LoginScreen';
+import { InventoryScreen } from '../native/screens/InventoryScreen';
 
 type TestFixtures = {
   loginPage: LoginPage;
@@ -33,6 +38,9 @@ type TestFixtures = {
   objectApiClient: ObjectApiClient;
   userApiClient: UserApiClient;
   userRepository: UserRepository;
+  loginScreen: LoginScreen;
+  inventoryScreen: InventoryScreen;
+  authenticatedInventoryScreen: InventoryScreen;
 };
 
 type WorkerFixtures = {
@@ -48,6 +56,8 @@ type WorkerFixtures = {
   reqresRequestContext: APIRequestContext;
   dbService: DbService;
   performanceService: PerformanceService;
+  mobileService: MobileService;
+  nativeDriverSession: Browser;
 };
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -155,6 +165,44 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   performanceService: [async ({}, use) => {
     await use(new PerformanceService());
   }, { scope: 'worker' }],
+
+  mobileService: [async ({}, use) => {
+    await use(new MobileService());
+  }, { scope: 'worker' }],
+
+  nativeDriverSession: [async ({}, use) => {
+    const config = getAppiumConfig();
+    const serverUrl = new URL(config.serverUrl);
+    const driver = await remote({
+      protocol: serverUrl.protocol.replace(':', ''),
+      hostname: serverUrl.hostname,
+      port: Number(serverUrl.port) || 4723,
+      path: serverUrl.pathname === '/' ? '/' : serverUrl.pathname,
+      capabilities: {
+        platformName: config.platformName,
+        'appium:automationName': config.automationName,
+        'appium:deviceName': config.deviceName,
+        ...(config.platformVersion ? { 'appium:platformVersion': config.platformVersion } : {}),
+        browserName: config.browserName,
+      },
+    });
+    await use(driver);
+    await driver.deleteSession();
+  }, { scope: 'worker' }],
+
+  loginScreen: async ({ nativeDriverSession }, use) => {
+    await use(new LoginScreen(nativeDriverSession));
+  },
+
+  inventoryScreen: async ({ nativeDriverSession }, use) => {
+    await use(new InventoryScreen(nativeDriverSession));
+  },
+
+  authenticatedInventoryScreen: async ({ loginScreen, inventoryScreen }, use) => {
+    await loginScreen.open();
+    await loginScreen.login(users.standard.username, users.standard.password);
+    await use(inventoryScreen);
+  },
 });
 
 export { expect } from '@playwright/test';

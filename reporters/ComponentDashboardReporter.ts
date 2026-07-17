@@ -21,6 +21,10 @@ const COMPONENT_META: Record<string, ComponentMeta> = {
   checkoutStepTwoPage: { component: 'CheckoutStepTwoPage', domain: 'ui', description: 'Checkout: order overview & totals' },
   checkoutCompletePage: { component: 'CheckoutCompletePage', domain: 'ui', description: 'Checkout: order confirmation' },
   performanceService: { component: 'PerformanceService', domain: 'performance', description: 'Navigation timing & Core Web Vitals reader' },
+  mobileService: { component: 'MobileService', domain: 'mobile', description: 'Mobile viewport, touch input, and tap-target size checks' },
+  loginScreen: { component: 'LoginScreen', domain: 'native', description: 'Login screen on a real/emulated device browser, via Appium' },
+  inventoryScreen: { component: 'InventoryScreen', domain: 'native', description: 'Product listing on a real/emulated device browser, via Appium' },
+  authenticatedInventoryScreen: { component: 'InventoryScreen', domain: 'native', description: 'Product listing on a real/emulated device browser, via Appium' },
   userRepository: { component: 'UserRepository', domain: 'database', description: 'SQLite users table queries' },
   objectApiClient: { component: 'ObjectApiClient', domain: 'api', description: 'REST client for api.restful-api.dev objects' },
   userApiClient: { component: 'UserApiClient', domain: 'api', description: 'REST client for reqres.in users & auth' },
@@ -34,9 +38,11 @@ const COMPONENT_META: Record<string, ComponentMeta> = {
   functionsService: { component: 'FunctionsService', domain: 'azure', description: 'Azure Functions app operations' },
 };
 
-const DOMAIN_ORDER = ['ui', 'performance', 'database', 'api', 'aws', 'azure'];
+const DOMAIN_ORDER = ['ui', 'mobile', 'native', 'performance', 'database', 'api', 'aws', 'azure'];
 const DOMAIN_LABELS: Record<string, string> = {
   ui: 'UI — saucedemo.com',
+  mobile: 'Mobile — device emulation',
+  native: 'Native — real device (Appium)',
   performance: 'Performance',
   database: 'Database',
   api: 'API clients',

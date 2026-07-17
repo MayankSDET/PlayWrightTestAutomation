@@ -15,6 +15,14 @@ const SECTION_META: Record<string, { label: string; blurb: string }> = {
     label: 'Website Speed',
     blurb: 'Does the site load fast enough, and with a stable layout, for a good customer experience?',
   },
+  mobile: {
+    label: 'Mobile Experience',
+    blurb: 'Does the shopping journey work on a phone-sized screen — right-sized viewport, tappable buttons, and a full checkout?',
+  },
+  native: {
+    label: 'Real Device Testing',
+    blurb: 'Does the site work in an actual mobile browser on a real or emulated Android/iOS device, not just a simulated viewport?',
+  },
   database: {
     label: 'Database Records',
     blurb: 'Can the system create, read, update, and delete a customer record correctly?',
@@ -37,10 +45,12 @@ const SECTION_META: Record<string, { label: string; blurb: string }> = {
   },
 };
 
-const SECTION_ORDER = ['ui', 'performance', 'database', 'api-object', 'api-user', 'aws', 'azure'];
+const SECTION_ORDER = ['ui', 'mobile', 'native', 'performance', 'database', 'api-object', 'api-user', 'aws', 'azure'];
 
 function sectionKeyFor(file: string): string | null {
   if (file.startsWith('ui/tests')) return 'ui';
+  if (file.startsWith('mobile/tests')) return 'mobile';
+  if (file.startsWith('native/tests')) return 'native';
   if (file.startsWith('performance/tests')) return 'performance';
   if (file.startsWith('database/tests')) return 'database';
   if (file === 'api/tests/api-object.spec.ts') return 'api-object';
